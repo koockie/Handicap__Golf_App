@@ -5,7 +5,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from './src/supabase';
 import { colors } from './src/theme';
 
+// Tipos de rutas centralizados
+import { RootStackParamList } from './src/types';
+
+// Pantallas
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';  
 import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import PlayersScreen from './src/screens/PlayersScreen';
 import PlayerDetailScreen from './src/screens/PlayerDetailScreen';
@@ -13,28 +18,20 @@ import AddRoundModal from './src/screens/AddRoundModal';
 import ProfileScreen from './src/screens/ProfileScreen';
 import EditRoundModal from './src/screens/EditRoundModal';
 
-export type RootStackParamList = {
-  Login: undefined;
-  AdminHome: undefined;
-  Players: undefined;
-  PlayerDetail: { playerId: string; displayName: string };
-  AddRound: { playerId: string };
-  EditRound: { roundId: string };   // 👈 FALTABA ESTA LÍNEA
-  Profile: undefined;
-};
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<'admin' | 'player' | null>(null);
 
+  // Mantiene la sesión activa
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Carga el rol del usuario autenticado
   useEffect(() => {
     (async () => {
       if (!session) { setRole(null); return; }
@@ -45,7 +42,7 @@ export default function App() {
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (!error && data) setRole(data.role as any);
+      if (!error && data) setRole(data.role as 'admin' | 'player');
     })();
   }, [session]);
 
@@ -59,9 +56,14 @@ export default function App() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
+        {/* Sin sesión: Login + Registro */}
         {!session ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registro' }} />
+          </>
         ) : role === 'admin' ? (
+          // Flujo admin
           <>
             <Stack.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: 'Administrador' }} />
             <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
@@ -74,6 +76,7 @@ export default function App() {
             <Stack.Screen name="EditRound" component={EditRoundModal} options={{ title: 'Editar tarjeta' }} />
           </>
         ) : (
+          // Flujo jugador
           <>
             <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
             <Stack.Screen
