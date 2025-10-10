@@ -35,32 +35,49 @@ export default function AdminPanel({ onUserCreated }: AdminPanelProps) {
   };
 
   const invite = async () => {
+    // Mantengo tu regla: exigir nombre (aunque la edge function soporta solo email).
     if (!displayName.trim()) {
       return Alert.alert('Campo requerido', 'Debes ingresar el nombre del jugador.');
     }
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('invite-user', {
-        body: { email: email.trim() || null, displayName: displayName.trim(), role },
-      });
+
+      // La edge function acepta email vacío ("") para crear perfil standalone.
+      const payload = {
+        email: email.trim(),                // "" crea perfil sin Auth
+        displayName: displayName.trim(),
+        role,
+      };
+
+      const { data, error } = await supabase.functions.invoke('invite-user', { body: payload });
 
       if (error) {
         console.error('Error en función:', error);
-        return Alert.alert('Error', error.message);
+        return Alert.alert('Error', error.message || 'Fallo al invocar la función.');
       }
 
+      // La nueva función siempre responde 200 con { ok: true/false, ... }
+      if (!data?.ok) {
+        const msg =
+          data?.error ||
+          data?.message ||
+          'No se pudo crear el jugador. Revisa que tengas sesión y permiso de administrador.';
+        return Alert.alert('Error', msg);
+      }
+
+      // Éxito
       Alert.alert('Listo', data?.message || 'Jugador creado correctamente.');
 
-      // Limpiar campos
+      // Limpiar
       setEmail('');
       setDisplayName('');
       setRole('player');
 
-      // Notificar al padre (aunque ya se recargará automáticamente por la suscripción)
-      if (onUserCreated) onUserCreated();
+      // Notificar al padre (y de todas formas tienes la suscripción realtime)
+      onUserCreated?.();
     } catch (err: any) {
-      Alert.alert('Error inesperado', err.message || 'No se pudo crear el jugador.');
+      Alert.alert('Error inesperado', err?.message || 'No se pudo crear el jugador.');
     } finally {
       setLoading(false);
     }
@@ -165,4 +182,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

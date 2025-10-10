@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert, // 👈 añadido
+  Alert,
 } from 'react-native';
 import { supabase } from '../supabase';
 import { Role } from '../types';
@@ -15,7 +15,7 @@ import { colors } from '../theme';
 import AdminPanel from '../components/AdminPanel';
 
 type PlayerRow = {
-  user_id: string;
+  user_id: string;              // <- seguimos usando esta key en la UI, pero ahora contiene profiles.id
   display_name: string;
   role: Role;
   handicap_index: number | null;
@@ -26,9 +26,9 @@ export default function PlayersScreen({ navigation }: any) {
   const [q, setQ] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [busyDelete, setBusyDelete] = useState<string | null>(null); // 👈 añadido
+  const [busyDelete, setBusyDelete] = useState<string | null>(null);
 
-  // 🔹 Verificar si el usuario actual es administrador
+  // Verificar si el usuario actual es administrador (vía profiles.user_id = auth.user.id)
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -44,41 +44,40 @@ export default function PlayersScreen({ navigation }: any) {
     })();
   }, []);
 
-  // 🔹 Cargar todos los jugadores + hándicap
+  // Cargar todos los jugadores + hándicap
   const loadPlayers = async () => {
     try {
       setLoading(true);
 
-      // 1️⃣ Obtener todos los perfiles
+      // 1) Obtener perfiles (OJO: ahora pedimos id)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, display_name, role')
+        .select('id, display_name, role')
         .order('display_name', { ascending: true });
 
       if (profilesError) throw profilesError;
 
-      // 2️⃣ Filtrar solo jugadores
+      // 2) Filtrar solo jugadores
       const playersOnly = (profiles ?? []).filter((p) => p.role === 'player');
 
-      // 3️⃣ Obtener hándicaps de todos los jugadores
+      // 3) Obtener hándicaps
       const { data: handicaps, error: hError } = await supabase
         .from('player_handicap')
         .select('player_id, handicap_index');
 
       if (hError) throw hError;
 
-      // 4️⃣ Vincular cada jugador con su hándicap (si tiene)
+      // 4) Vincular jugador con su HI (join por profiles.id)
       const playersData: PlayerRow[] = playersOnly.map((p: any) => {
-        const h = handicaps?.find((x) => x.player_id === p.user_id);
+        const h = handicaps?.find((x) => x.player_id === p.id);
         return {
-          user_id: p.user_id,
+          user_id: p.id, // <- mapeamos profiles.id a la propiedad que usa la UI
           display_name: p.display_name || 'Sin nombre',
           role: p.role,
           handicap_index: h?.handicap_index ?? null,
         };
       });
 
-      // 5️⃣ Actualizar el estado
       setPlayers(playersData);
     } catch (err) {
       console.error('Error cargando jugadores:', err);
@@ -87,11 +86,10 @@ export default function PlayersScreen({ navigation }: any) {
     }
   };
 
-  // 🔁 Cargar jugadores al montar y suscribirse en tiempo real
+  // Suscripción realtime
   useEffect(() => {
     loadPlayers();
 
-    // 🟢 Suscripción en tiempo real a cambios en la tabla profiles
     const channel = supabase
       .channel('realtime-profiles')
       .on(
@@ -101,13 +99,12 @@ export default function PlayersScreen({ navigation }: any) {
       )
       .subscribe();
 
-    // 🧹 Limpiar al desmontar
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // 🔍 Filtrado por nombre (insensible a mayúsculas)
+  // Filtro por nombre
   const filtered = useMemo(
     () =>
       players.filter((p) =>
@@ -116,7 +113,7 @@ export default function PlayersScreen({ navigation }: any) {
     [players, q]
   );
 
-  // ✅ Confirmación y eliminación (solo admins)
+  // Confirmación y eliminación (solo admins)
   const confirmDelete = (player: PlayerRow) => {
     if (!isAdmin) return;
     Alert.alert(
@@ -136,12 +133,18 @@ export default function PlayersScreen({ navigation }: any) {
   const doDelete = async (player: PlayerRow) => {
     try {
       setBusyDelete(player.user_id);
+
+      // IMPORTANTE:
+      // Ahora user_id = profiles.id (perfil), no el id de Auth.
+      // Llama a tu edge function pasando profileId.
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: player.user_id },
+        body: { profileId: player.user_id }, // <- enviar el id del perfil
       });
+
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || 'No se pudo eliminar.');
-      await loadPlayers(); // recargar lista
+
+      await loadPlayers();
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'No se pudo eliminar.');
     } finally {
@@ -151,7 +154,7 @@ export default function PlayersScreen({ navigation }: any) {
 
   return (
     <View style={{ flex: 1, padding: 12, backgroundColor: colors.bg }}>
-      {/* Panel de administración visible solo para admins */}
+      {/* Panel admin */}
       {isAdmin && <AdminPanel onUserCreated={loadPlayers} />}
 
       <TextInput
@@ -162,11 +165,7 @@ export default function PlayersScreen({ navigation }: any) {
       />
 
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color={colors.dark}
-          style={{ marginTop: 20 }}
-        />
+        <ActivityIndicator size="large" color={colors.dark} style={{ marginTop: 20 }} />
       ) : (
         <FlatList
           data={filtered}
@@ -175,7 +174,7 @@ export default function PlayersScreen({ navigation }: any) {
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate('PlayerDetail', {
-                  playerId: item.user_id,
+                  playerId: item.user_id,        // <- pasa profiles.id
                   displayName: item.display_name,
                 })
               }
@@ -192,7 +191,6 @@ export default function PlayersScreen({ navigation }: any) {
                 <Text style={styles.hiText}>{item.handicap_index ?? '—'}</Text>
               </View>
 
-              {/* 👇 Botón eliminar SOLO para admins */}
               {isAdmin && (
                 <TouchableOpacity
                   onPress={() => confirmDelete(item)}
