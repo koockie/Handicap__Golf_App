@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert, // 👈 añadido
 } from 'react-native';
 import { supabase } from '../supabase';
 import { Role } from '../types';
@@ -25,6 +26,7 @@ export default function PlayersScreen({ navigation }: any) {
   const [q, setQ] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [busyDelete, setBusyDelete] = useState<string | null>(null); // 👈 añadido
 
   // 🔹 Verificar si el usuario actual es administrador
   useEffect(() => {
@@ -95,10 +97,7 @@ export default function PlayersScreen({ navigation }: any) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
-        (payload) => {
-          console.log('🔄 Cambio detectado en profiles:', payload.eventType);
-          loadPlayers(); // recargar lista
-        }
+        () => loadPlayers()
       )
       .subscribe();
 
@@ -116,6 +115,39 @@ export default function PlayersScreen({ navigation }: any) {
       ),
     [players, q]
   );
+
+  // ✅ Confirmación y eliminación (solo admins)
+  const confirmDelete = (player: PlayerRow) => {
+    if (!isAdmin) return;
+    Alert.alert(
+      'Eliminar deportista',
+      `¿Eliminar a "${player.display_name}"? Se borrará su perfil y sus tarjetas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => doDelete(player),
+        },
+      ]
+    );
+  };
+
+  const doDelete = async (player: PlayerRow) => {
+    try {
+      setBusyDelete(player.user_id);
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: player.user_id },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'No se pudo eliminar.');
+      await loadPlayers(); // recargar lista
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo eliminar.');
+    } finally {
+      setBusyDelete(null);
+    }
+  };
 
   return (
     <View style={{ flex: 1, padding: 12, backgroundColor: colors.bg }}>
@@ -155,11 +187,26 @@ export default function PlayersScreen({ navigation }: any) {
                   {item.role === 'admin' ? 'Administrador' : 'Jugador'}
                 </Text>
               </View>
+
               <View style={styles.hiPill}>
-                <Text style={styles.hiText}>
-                  {item.handicap_index ?? '—'}
-                </Text>
+                <Text style={styles.hiText}>{item.handicap_index ?? '—'}</Text>
               </View>
+
+              {/* 👇 Botón eliminar SOLO para admins */}
+              {isAdmin && (
+                <TouchableOpacity
+                  onPress={() => confirmDelete(item)}
+                  style={[
+                    styles.deleteBtn,
+                    busyDelete === item.user_id && { opacity: 0.6 },
+                  ]}
+                  disabled={busyDelete === item.user_id}
+                >
+                  <Text style={styles.deleteTxt}>
+                    {busyDelete === item.user_id ? '...' : 'Eliminar'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           )}
         />
@@ -180,6 +227,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -200,4 +248,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   hiText: { color: '#fff', fontWeight: '700' },
+  deleteBtn: {
+    marginLeft: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#ff4d4d',
+  },
+  deleteTxt: { color: '#fff', fontWeight: '700' },
 });
