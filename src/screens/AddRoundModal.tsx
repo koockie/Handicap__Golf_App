@@ -4,10 +4,14 @@ import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { computeScoreDifferential } from '../utils/handicap';
 
+// --- 1. Definir el nombre del club aquí ---
+const CLUB_NAME = "Club de Golf Papudo";
+
 export default function AddRoundModal({ route, navigation }: any){
   const { playerId } = route.params || {};
   const [playedAt, setPlayedAt] = useState<string>(new Date().toISOString().slice(0,10));
-  const [courseName, setCourseName] = useState('');
+  // --- 2. Quitar el useState de courseName ---
+  // const [courseName, setCourseName] = useState(''); 
   const [cr, setCr] = useState('65.6');    // defaults iniciales
   const [slope, setSlope] = useState('115');
   const [par, setPar] = useState('66');
@@ -48,7 +52,7 @@ export default function AddRoundModal({ route, navigation }: any){
         player_id: ownerId,
         played_at: playedAt,
         course_id: null,
-        course_name: courseName || 'N/D',
+        course_name: CLUB_NAME, // <-- 3. Usar el valor harcodeado
         course_rating: CR,
         course_slope: S,
         course_par: PAR,
@@ -76,13 +80,9 @@ export default function AddRoundModal({ route, navigation }: any){
         />
       </LabeledInput>
 
+      {/* --- 4. Reemplazar TextInput por Text --- */}
       <LabeledInput label="Campo/Tee">
-        <TextInput
-          placeholder="Nombre del campo"
-          value={courseName}
-          onChangeText={setCourseName}
-          style={styles.input}
-        />
+        <Text style={styles.courseNameText}>{CLUB_NAME}</Text>
       </LabeledInput>
 
       <LabeledInput label="Course Rating">
@@ -125,9 +125,9 @@ export default function AddRoundModal({ route, navigation }: any){
         />
       </LabeledInput>
 
-      <LabeledInput label="Score ajustado (NDB)">
+      <LabeledInput label="Score ajustado (Golpes realizados)">
         <TextInput
-          placeholder="86"
+          placeholder="0"
           keyboardType="numeric"
           value={adj}
           onChangeText={setAdj}
@@ -192,6 +192,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: '#fff',
+  },
+  // --- 5. Estilo para el texto del nombre del club ---
+  courseNameText: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    color: colors.text,
+    backgroundColor: '#f4f4f4', // Un fondo gris claro para que parezca "deshabilitado"
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   preview: { color: '#666', marginBottom: 8 },
   previewStrong: { fontWeight: '700', color: colors.text },

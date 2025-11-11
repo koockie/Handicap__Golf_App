@@ -7,7 +7,7 @@ import { computeScoreDifferential } from '../utils/handicap';
 export default function EditRoundModal({ route, navigation }: any){
   const { roundId } = route.params;
   const [playedAt, setPlayedAt] = useState('');
-  const [courseName, setCourseName] = useState('');
+  const [courseName, setCourseName] = useState(''); // <-- Mantenemos el state para mostrarlo
   const [cr, setCr] = useState('');
   const [slope, setSlope] = useState('');
   const [par, setPar] = useState('');
@@ -18,7 +18,7 @@ export default function EditRoundModal({ route, navigation }: any){
     const { data, error } = await supabase.from('rounds').select('*').eq('id', roundId).maybeSingle();
     if (error || !data) { Alert.alert('Error', error?.message || 'No encontrada'); return; }
     setPlayedAt(data.played_at);
-    setCourseName(data.course_name ?? '');
+    setCourseName(data.course_name ?? ''); // <-- Se carga el nombre
     setCr(String(data.course_rating ?? ''));
     setSlope(String(data.course_slope ?? ''));
     setPar(String(data.course_par ?? ''));
@@ -49,7 +49,7 @@ export default function EditRoundModal({ route, navigation }: any){
 
     const { error } = await supabase.from('rounds').update({
       played_at: playedAt,
-      course_name: courseName || 'N/D',
+      // course_name: courseName || 'N/D', // <-- 1. LÍNEA ELIMINADA (ya no se actualiza)
       course_rating: CR,
       course_slope: S,
       course_par: PAR,
@@ -74,13 +74,9 @@ export default function EditRoundModal({ route, navigation }: any){
         />
       </LabeledInput>
 
+      {/* --- 2. Reemplazar TextInput por Text --- */}
       <LabeledInput label="Campo/Tee">
-        <TextInput
-          placeholder="Nombre del campo"
-          value={courseName}
-          onChangeText={setCourseName}
-          style={styles.input}
-        />
+        <Text style={styles.courseNameText}>{courseName || 'N/D'}</Text>
       </LabeledInput>
 
       <LabeledInput label="Course Rating">
@@ -190,6 +186,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: '#fff',
+  },
+  // --- 3. Estilo para el texto del nombre del club ---
+  courseNameText: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    color: colors.text,
+    backgroundColor: '#f4f4f4',
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   preview: { color: '#674444ff', marginBottom: 8 },
   previewStrong: { fontWeight: '700', color: colors.text },

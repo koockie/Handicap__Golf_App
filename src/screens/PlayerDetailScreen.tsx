@@ -2,21 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../supabase';
 import { Round } from '../types';
-import { computeHandicapIndex } from '../utils/handicap';
+// --- 1. IMPORTAR AMBAS FUNCIONES ---
+import { computeHandicapIndex, computeCourseHandicap } from '../utils/handicap';
 import { colors } from '../theme';
 
-export default function PlayerDetailScreen({ route, navigation }: any){
+export default function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId, displayName } = route.params;
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [hi, setHi] = useState<number|null>(null);
+  const [hi, setHi] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const load = async ()=>{
+  const load = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Añadido para seguridad
+
     const { data: me } = await supabase
       .from('profiles')
       .select('role')
-      .eq('user_id', user!.id)
+      .eq('user_id', user!.id) // user puede ser null, ! es para decirle a TS que confíe
       .maybeSingle();
     setIsAdmin(me?.role === 'admin');
 
@@ -34,46 +37,58 @@ export default function PlayerDetailScreen({ route, navigation }: any){
 
     const rs = (data ?? []) as Round[];
     setRounds(rs);
-    setHi(computeHandicapIndex(rs));
+    // --- 2. CALCULAR EL HI ---
+    const calculatedHi = computeHandicapIndex(rs);
+    setHi(calculatedHi);
   };
 
-  useEffect(()=>{ load(); }, [playerId]);
+  useEffect(() => { load(); }, [playerId]);
 
-  const deleteRound = async (id:string) => {
+  const deleteRound = async (id: string) => {
     const { error } = await supabase.from('rounds').delete().eq('id', id);
     if (error) return Alert.alert('Error', error.message);
     await load();
   };
 
   return (
-    <View style={{flex:1, padding:12, gap:8}}>
-      <Text style={{fontSize:18, fontWeight:'700'}}>
-        {displayName} · Handicap (aprox WHS): {hi ?? '—'}
+    <View style={{ flex: 1, padding: 12, gap: 8 }}>
+      {/* --- 3. TÍTULOS MEJORADOS --- */}
+      <Text style={styles.title}>
+        {displayName}
       </Text>
+      <Text style={styles.hiTitle}>
+        Hándicap Index (HI): {hi !== null ? hi.toFixed(1) : '—'}
+      </Text>
+
 
       {isAdmin && (
         <Button
           title="Agregar tarjeta"
-          onPress={()=>navigation.navigate('AddRound', { playerId })}
+          onPress={() => navigation.navigate('AddRound', { playerId })}
+          color={colors.dark} // <-- Color añadido
         />
       )}
 
       <FlatList
         data={rounds}
-        keyExtractor={(r)=>r.id}
-        renderItem={({item, index})=>{
+        keyExtractor={(r) => r.id}
+        renderItem={({ item, index }) => {
           // Manejo defensivo del SD si llegara null/undefined
           const sd = Number.isFinite(item?.score_differential as any)
             ? (item.score_differential as number).toFixed(1)
             : '—';
 
+          // --- 4. CALCULAR EL COURSE HANDICAP (CH) ---
+          const ch = (hi !== null && Number.isFinite(hi))
+            ? computeCourseHandicap(hi, item.course_rating, item.course_slope, item.course_par)
+            : null;
+
           return (
             <View style={styles.row}>
               {/* Número de tarjeta */}
               <View style={styles.indexPill}>
+                {/* Dejamos el número como estaba en tu archivo original */}
                 <Text style={styles.indexTxt}>{index + 1}</Text>
-                {/* Si prefieres que #1 sea la más antigua:
-                    <Text style={styles.indexTxt}>{rounds.length - index}</Text> */}
               </View>
 
               {/* Contenido de la tarjeta */}
@@ -82,23 +97,29 @@ export default function PlayerDetailScreen({ route, navigation }: any){
                   {item.played_at} · {item.course_name}
                 </Text>
                 <Text style={styles.line2}>
-                  AdjScore: {item.adjusted_score} | CR {item.course_rating} | S {item.course_slope} | PCC {item.pcc}
+                  {/* --- 5. LÍNEA REORDENADA --- */}
+                  CR: {item.course_rating} | Slope: {item.course_slope} | Par: {item.course_par} | PCC: {item.pcc}
                 </Text>
                 <Text style={styles.line3}>
-                  SD: {sd}
+                  {/* --- 6. MOSTRAR SCORE JUNTO A SD --- */}
+                  Score: <Text style={styles.scoreText}>{item.adjusted_score}</Text> | SD: <Text style={styles.sdText}>{sd}</Text>
+                </Text>
+                {/* --- 7. MOSTRAR EL RESULTADO DE 'ch' --- */}
+                <Text style={styles.lineCH}>
+                  Hándicap de Juego (CH): <Text style={styles.chText}>{ch ?? 'N/A'}</Text>
                 </Text>
 
                 {isAdmin && (
                   <View style={styles.actions}>
                     <Button
                       title="Editar"
-                      onPress={()=>navigation.navigate('EditRound', { roundId: item.id })}
+                      onPress={() => navigation.navigate('EditRound', { roundId: item.id })}
                       color={colors.dark}
                     />
                     <Button
                       title="Eliminar"
                       color="tomato"
-                      onPress={()=>deleteRound(item.id)}
+                      onPress={() => deleteRound(item.id)}
                     />
                   </View>
                 )}
@@ -112,46 +133,86 @@ export default function PlayerDetailScreen({ route, navigation }: any){
 }
 
 const styles = StyleSheet.create({
+  // --- 8. ESTILOS ACTUALIZADOS Y AÑADIDOS ---
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  hiTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.dark,
+    marginBottom: 8,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: '#e6e6e6',
+    borderColor: colors.border, // <- Color de tema
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
   },
   indexPill: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.light, // <- Color de tema
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
     marginTop: 2,
   },
   indexTxt: {
-    color: '#fff',
+    color: colors.dark, // <- Color de tema
     fontWeight: '700',
     fontSize: 12,
   },
   cardBody: {
     flex: 1,
+    gap: 4, // Espacio entre líneas
   },
   line1: {
     fontWeight: '700',
+    fontSize: 15,
     color: colors.text,
     marginBottom: 2,
   },
   line2: {
     color: '#555',
+    fontSize: 13,
   },
   line3: {
     color: '#333',
-    marginTop: 2,
+    fontSize: 14,
+  },
+  lineCH: {
+    color: colors.dark,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  scoreText: {
+    fontWeight: '700',
+    color: '#000',
+    fontSize: 15,
+  },
+  sdText: {
+    fontWeight: '700',
+    color: '#000',
+    fontSize: 15,
+  },
+  chText: {
+    fontWeight: '800',
+    color: colors.dark,
+    fontSize: 16,
   },
   actions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 6,
+    marginTop: 10,
   },
 });

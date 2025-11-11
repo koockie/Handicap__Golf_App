@@ -1,5 +1,16 @@
 ﻿import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, Image } from 'react-native'; 
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  Alert,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView, // <-- 1. Importado
+  ScrollView,           // <-- 2. Importado
+  Platform,             // <-- 3. Importado
+} from 'react-native';
 import { supabase } from '../supabase';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -34,79 +45,96 @@ export default function LoginScreen({ navigation }: { navigation: LoginNav }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require('../../assets/handicap-pro-logo.png')} //imagen logo
-        style={styles.logo}
-      />
+    // --- 4. Envolver todo en el KeyboardAvoidingView ---
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      {/* --- 5. Envolver el contenido en un ScrollView --- */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Image
+          source={require('../../assets/handicap-pro-logo.png')} //imagen logo
+          style={styles.logo}
+        />
 
-      <Text style={styles.title}>Iniciar sesión</Text>
-      <TextInput
-        placeholder="Correo"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        placeholderTextColor="#888" // Color de placeholder
-      />
-      <TextInput
-        placeholder="Contraseña"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-        placeholderTextColor="#888" // Color de placeholder
-      />
- 
-      <Button 
-        title={loading ? 'Entrando…' : 'Entrar'} 
-        onPress={handleLogin} 
-        disabled={loading} 
-        color={colors.dark} // Aplicamos el color del tema
-      />
-      <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-        ¿No tienes cuenta? Regístrate
-      </Text>
-    </View>
+        <Text style={styles.title}>Iniciar sesión</Text>
+        <TextInput
+          placeholder="Correo"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholderTextColor="#888" // Color de placeholder
+        />
+        <TextInput
+          placeholder="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+          placeholderTextColor="#888" // Color de placeholder
+        />
+
+        <View style={{ height: 12 }} />
+
+        <Button
+          title={loading ? 'Entrando…' : 'Entrar'}
+          onPress={handleLogin}
+          disabled={loading}
+          color={colors.dark} // Aplicamos el color del tema
+        />
+        <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
+          ¿No tienes cuenta? Regístrate
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    padding: 20,
-    backgroundColor: colors.bg, 
+  container: {
+    flex: 1, // <- 6. Cambiado
+    backgroundColor: colors.bg,
   },
-  logo: { // Estilo foto logo
-    width: 400, //ancho
-    height: 400, // alto
+  // --- 7. Nuevo estilo para el ScrollView ---
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  logo: {
+    // --- 8. Logo más pequeño y re-centrado ---
+    width: 250, //antes 400
+    height: 250, //antes 400
     resizeMode: 'contain',
     alignSelf: 'center',
-    marginBottom: 20,
-    borderRadius: 200,
+    marginBottom: 10, // <- Reducido
+    borderRadius: 125, // <- Ajustado (mitad de width/height)
   },
-  title: { 
-    fontSize: 24, 
+  title: {
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: 20, 
+    marginBottom: 20,
     textAlign: 'center',
     color: colors.text,
   },
-  input: { 
-    borderWidth: 1, 
+  input: {
+    borderWidth: 1,
     borderColor: colors.border,
-    padding: 12, 
+    padding: 12,
     borderRadius: 8, // Bordes redondeados
-    marginBottom: 12, 
+    marginBottom: 12,
     backgroundColor: '#fff', // Fondo blanco para el input
     fontSize: 16,
     color: colors.text,
   },
-  link: { 
-    color: colors.dark, 
-    marginTop: 15, 
+  link: {
+    color: colors.dark,
+    marginTop: 15,
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '500',
