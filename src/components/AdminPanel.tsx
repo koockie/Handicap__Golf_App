@@ -35,7 +35,7 @@ export default function AdminPanel({ onUserCreated }: AdminPanelProps) {
   };
 
   const invite = async () => {
-    // Mantengo tu regla: exigir nombre (aunque la edge function soporta solo email).
+    //exigir nombre
     if (!displayName.trim()) {
       return Alert.alert('Campo requerido', 'Debes ingresar el nombre del jugador.');
     }
@@ -74,7 +74,7 @@ export default function AdminPanel({ onUserCreated }: AdminPanelProps) {
       setDisplayName('');
       setRole('player');
 
-      // Notificar al padre (y de todas formas tienes la suscripción realtime)
+      // Notificar al padre 
       onUserCreated?.();
     } catch (err: any) {
       Alert.alert('Error inesperado', err?.message || 'No se pudo crear el jugador.');

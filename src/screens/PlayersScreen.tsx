@@ -1,3 +1,4 @@
+// src/screens/PlayersScreen.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -8,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Button, // <-- LÍNEA AÑADIDA
 } from 'react-native';
 import { supabase } from '../supabase';
 import { Role } from '../types';
@@ -15,7 +17,7 @@ import { colors } from '../theme';
 import AdminPanel from '../components/AdminPanel';
 
 type PlayerRow = {
-  user_id: string;              // <- seguimos usando esta key en la UI, pero ahora contiene profiles.id
+  user_id: string; // <- seguimos usando esta key en la UI, pero ahora contiene profiles.id
   display_name: string;
   role: Role;
   handicap_index: number | null;
@@ -157,6 +159,17 @@ export default function PlayersScreen({ navigation }: any) {
       {/* Panel admin */}
       {isAdmin && <AdminPanel onUserCreated={loadPlayers} />}
 
+      {/* --- INICIO DE LÍNEAS NUEVAS --- */}
+      {/* Botón de Ranking visible para todos */}
+      <View style={{ marginBottom: 8, marginTop: isAdmin ? 0 : 8 }}>
+        <Button
+          title="Ver Ranking"
+          onPress={() => navigation.navigate('Ranking')}
+          color={colors.dark}
+        />
+      </View>
+      {/* --- FIN DE LÍNEAS NUEVAS --- */}
+
       <TextInput
         placeholder="Buscar jugador..."
         style={styles.search}
@@ -174,7 +187,7 @@ export default function PlayersScreen({ navigation }: any) {
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate('PlayerDetail', {
-                  playerId: item.user_id,        // <- pasa profiles.id
+                  playerId: item.user_id, // <- pasa profiles.id
                   displayName: item.display_name,
                 })
               }

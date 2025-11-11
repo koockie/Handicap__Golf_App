@@ -8,7 +8,7 @@ export default function AddRoundModal({ route, navigation }: any){
   const { playerId } = route.params || {};
   const [playedAt, setPlayedAt] = useState<string>(new Date().toISOString().slice(0,10));
   const [courseName, setCourseName] = useState('');
-  const [cr, setCr] = useState('65.6');    // defaults realistas
+  const [cr, setCr] = useState('65.6');    // defaults iniciales
   const [slope, setSlope] = useState('115');
   const [par, setPar] = useState('66');
   const [pcc, setPcc] = useState('0');

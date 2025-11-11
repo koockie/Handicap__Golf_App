@@ -16,6 +16,7 @@ import PlayerDetailScreen from './src/screens/PlayerDetailScreen';
 import AddRoundModal from './src/screens/AddRoundModal';
 import EditRoundModal from './src/screens/EditRoundModal';
 import ProfileScreen from './src/screens/ProfileScreen';
+import RankingScreen from './src/screens/RankingScreen'; 
 import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { View, Pressable, Text } from 'react-native';
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -69,26 +70,26 @@ export default function App() {
   };
 
   // Configuración de header con botón de salida
-const screenOptionsWithLogout: NativeStackNavigationOptions = {
-  headerStyle: { backgroundColor: colors.dark },
-  headerTintColor: '#fff',
-  headerTitleStyle: { fontWeight: '700' },
-  contentStyle: { backgroundColor: colors.bg },
-  headerRight: () => (
-    <Pressable
-      onPress={handleLogout}
-      style={{
-        marginRight: 10,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 6,
-        backgroundColor: '#ff4d4d',
-      }}
-    >
-      <Text style={{ color: '#fff', fontWeight: 'bold' }}>Salir</Text>
-    </Pressable>
-  ),
-};
+  const screenOptionsWithLogout: NativeStackNavigationOptions = {
+    headerStyle: { backgroundColor: colors.dark },
+    headerTintColor: '#fff',
+    headerTitleStyle: { fontWeight: '700' },
+    contentStyle: { backgroundColor: colors.bg },
+    headerRight: () => (
+      <Pressable
+        onPress={handleLogout}
+        style={{
+          marginRight: 10,
+          paddingVertical: 6,
+          paddingHorizontal: 10,
+          borderRadius: 6,
+          backgroundColor: '#ff4d4d',
+        }}
+      >
+        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Salir</Text>
+      </Pressable>
+    ),
+  };
 
   return (
     <NavigationContainer>
@@ -121,6 +122,7 @@ const screenOptionsWithLogout: NativeStackNavigationOptions = {
             component={PlayerDetailScreen}
             options={({ route }) => ({ title: route.params?.displayName ?? 'Detalle del jugador' })}
           />
+          <Stack.Screen name="Ranking" component={RankingScreen} options={{ title: 'Ranking' }} />
           <Stack.Screen name="AddRound" component={AddRoundModal} options={{ title: 'Agregar tarjeta' }} />
           <Stack.Screen name="EditRound" component={EditRoundModal} options={{ title: 'Editar tarjeta' }} />
         </Stack.Navigator>
@@ -132,6 +134,7 @@ const screenOptionsWithLogout: NativeStackNavigationOptions = {
             component={PlayerDetailScreen}
             options={({ route }) => ({ title: route.params?.displayName ?? 'Detalle del jugador' })}
           />
+          <Stack.Screen name="Ranking" component={RankingScreen} options={{ title: 'Ranking' }} />
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Mi perfil' }} />
         </Stack.Navigator>
       )}

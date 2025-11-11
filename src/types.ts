@@ -13,7 +13,7 @@ export interface Profile {
 export interface Round {
   id: string;
   player_id: string;
-  played_at: string; // ISO date
+  played_at: string; 
   course_name: string;
   course_rating: number;
   course_slope: number;
@@ -23,8 +23,7 @@ export interface Round {
   score_differential: number;
 }
 
-// --- Navegación (Stack) ---
-// Mantén estos nombres EXACTAMENTE iguales a los de App.tsx
+// Navegación
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -34,4 +33,5 @@ export type RootStackParamList = {
   AddRound: { playerId: string };
   EditRound: { roundId: string };
   Profile: undefined;
+  Ranking: undefined;
 };

@@ -25,7 +25,6 @@ export default function RegisterScreen({ navigation }: { navigation: RegisterNav
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      // Ajusta a tu URL de Metro: mira la consola "exp://192.168.x.x:8081"
       options: { emailRedirectTo: 'exp://192.168.1.66:8081' }
     });
 
