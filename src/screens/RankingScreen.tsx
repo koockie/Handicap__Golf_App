@@ -13,14 +13,21 @@ import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
+// --- 1. Importar la función de cálculo ---
+import { computeCourseHandicap } from '../utils/handicap';
 
 type RankingRow = {
-  player_id: string; // Este es el profiles.id
+  player_id: string; 
   display_name: string;
   handicap_index: number;
 };
 
 type RankingNav = NativeStackNavigationProp<RootStackParamList, 'Ranking'>;
+
+// --- 2. Definir constantes del club ---
+const PAPUDO_CR = 65.6;
+const PAPUDO_SR = 115;
+const PAPUDO_PAR = 66;
 
 export default function RankingScreen({ navigation }: { navigation: RankingNav }) {
   const [players, setPlayers] = useState<RankingRow[]>([]);
@@ -121,33 +128,41 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
         <FlatList
           data={sortedPlayers}
           keyExtractor={(item) => item.player_id}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              style={styles.card}
-              //detalle del jugador (es de solo lectura para players)
-              onPress={() =>
-                navigation.navigate('PlayerDetail', {
-                  playerId: item.player_id,
-                  displayName: item.display_name,
-                })
-              }
-            >
-              {/* Posición en el ranking */}
-              <View style={styles.rankPill}>
-                <Text style={styles.rankText}>{index + 1}</Text>
-              </View>
+          renderItem={({ item, index }) => {
+            // --- 3. Calcular HI y CH ---
+            const hi = item.handicap_index; // La query ya filtró nulos
+            const ch = computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR);
 
-              {/* Nombre */}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{item.display_name}</Text>
-              </View>
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                //detalle del jugador (es de solo lectura para players)
+                onPress={() =>
+                  navigation.navigate('PlayerDetail', {
+                    playerId: item.player_id,
+                    displayName: item.display_name,
+                  })
+                }
+              >
+                {/* Posición en el ranking */}
+                <View style={styles.rankPill}>
+                  <Text style={styles.rankText}>{index + 1}</Text>
+                </View>
 
-              {/* Hándicap */}
-              <View style={styles.hiPill}>
-                <Text style={styles.hiText}>{item.handicap_index.toFixed(1)}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+                {/* Nombre */}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{item.display_name}</Text>
+                </View>
+
+                {/* --- 4. Mostrar HI y CH --- */}
+                <View style={styles.handicapBox}>
+                  <Text style={styles.hiText}>{hi.toFixed(1)}</Text>
+                  <Text style={styles.chText}>CH: {ch}</Text>
+                </View>
+                
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
               No hay jugadores con hándicap calculado (se requieren 3 tarjetas).
@@ -197,19 +212,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  hiPill: {
+
+  // --- 5. Estilos para HI y CH ---
+  handicapBox: { // Renombrado de hiPill
     backgroundColor: colors.dark,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 999,
-    minWidth: 50, 
+    borderRadius: 10, // Menos redondo
+    minWidth: 60, 
     alignItems: 'center',
   },
   hiText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 16, // HI grande
   },
+  chText: { // Nuevo estilo para CH
+    color: colors.light,
+    fontWeight: '700',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  // --- Fin estilos ---
+  
   emptyText: {
     textAlign: 'center',
     marginTop: 30,

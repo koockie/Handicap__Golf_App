@@ -9,19 +9,26 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Button, // <-- LÍNEA AÑADIDA
+  Button,
 } from 'react-native';
 import { supabase } from '../supabase';
 import { Role } from '../types';
 import { colors } from '../theme';
 import AdminPanel from '../components/AdminPanel';
+// --- 1. Importar la función de cálculo ---
+import { computeCourseHandicap } from '../utils/handicap';
 
 type PlayerRow = {
-  user_id: string; // <- seguimos usando esta key en la UI, pero ahora contiene profiles.id
+  user_id: string; 
   display_name: string;
   role: Role;
   handicap_index: number | null;
 };
+
+// --- 2. Definir constantes del club ---
+const PAPUDO_CR = 65.6;
+const PAPUDO_SR = 115;
+const PAPUDO_PAR = 66;
 
 export default function PlayersScreen({ navigation }: any) {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -159,7 +166,6 @@ export default function PlayersScreen({ navigation }: any) {
       {/* Panel admin */}
       {isAdmin && <AdminPanel onUserCreated={loadPlayers} />}
 
-      {/* --- INICIO DE LÍNEAS NUEVAS --- */}
       {/* Botón de Ranking visible para todos */}
       <View style={{ marginBottom: 8, marginTop: isAdmin ? 0 : 8 }}>
         <Button
@@ -168,7 +174,6 @@ export default function PlayersScreen({ navigation }: any) {
           color={colors.dark}
         />
       </View>
-      {/* --- FIN DE LÍNEAS NUEVAS --- */}
 
       <TextInput
         placeholder="Buscar jugador..."
@@ -183,43 +188,57 @@ export default function PlayersScreen({ navigation }: any) {
         <FlatList
           data={filtered}
           keyExtractor={(x) => x.user_id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('PlayerDetail', {
-                  playerId: item.user_id, // <- pasa profiles.id
-                  displayName: item.display_name,
-                })
-              }
-              style={styles.card}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{item.display_name}</Text>
-                <Text style={styles.subtext}>
-                  {item.role === 'admin' ? 'Administrador' : 'Jugador'}
-                </Text>
-              </View>
-
-              <View style={styles.hiPill}>
-                <Text style={styles.hiText}>{item.handicap_index ?? '—'}</Text>
-              </View>
-
-              {isAdmin && (
-                <TouchableOpacity
-                  onPress={() => confirmDelete(item)}
-                  style={[
-                    styles.deleteBtn,
-                    busyDelete === item.user_id && { opacity: 0.6 },
-                  ]}
-                  disabled={busyDelete === item.user_id}
-                >
-                  <Text style={styles.deleteTxt}>
-                    {busyDelete === item.user_id ? '...' : 'Eliminar'}
+          renderItem={({ item }) => {
+            // --- 3. Calcular HI y CH ---
+            const hi = item.handicap_index;
+            const ch = (hi !== null)
+              ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR)
+              : null;
+              
+            return (
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('PlayerDetail', {
+                    playerId: item.user_id, // <- pasa profiles.id
+                    displayName: item.display_name,
+                  })
+                }
+                style={styles.card}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{item.display_name}</Text>
+                  <Text style={styles.subtext}>
+                    {item.role === 'admin' ? 'Administrador' : 'Jugador'}
                   </Text>
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-          )}
+                </View>
+
+                {/* --- 4. Mostrar HI y CH --- */}
+                <View style={styles.handicapBox}>
+                  <Text style={styles.hiText}>
+                    HI: {hi !== null ? hi.toFixed(1) : '—'}
+                  </Text>
+                  <Text style={styles.chText}>
+                    CH: {ch !== null ? ch : '—'}
+                  </Text>
+                </View>
+
+                {isAdmin && (
+                  <TouchableOpacity
+                    onPress={() => confirmDelete(item)}
+                    style={[
+                      styles.deleteBtn,
+                      busyDelete === item.user_id && { opacity: 0.6 },
+                    ]}
+                    disabled={busyDelete === item.user_id}
+                  >
+                    <Text style={styles.deleteTxt}>
+                      {busyDelete === item.user_id ? '...' : 'Eliminar'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -252,13 +271,29 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 16, fontWeight: '700', color: colors.text },
   subtext: { fontSize: 12, color: '#888', marginTop: 2 },
-  hiPill: {
+  
+  // --- 5. Estilos para HI y CH ---
+  handicapBox: { // Renombrado de hiPill
     backgroundColor: colors.dark,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 999,
+    borderRadius: 10, // Menos redondo
+    alignItems: 'center',
+    minWidth: 60,
   },
-  hiText: { color: '#fff', fontWeight: '700' },
+  hiText: { 
+    color: '#fff', 
+    fontWeight: '700',
+    fontSize: 14, // HI
+  },
+  chText: { // Nuevo estilo para CH
+    color: colors.light, // Un color más suave
+    fontWeight: '700',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  // --- Fin estilos ---
+  
   deleteBtn: {
     marginLeft: 8,
     paddingVertical: 8,
