@@ -123,9 +123,9 @@ export default function EditRoundModal({ route, navigation }: any){
         />
       </LabeledInput>
 
-      <LabeledInput label="Score ajustado (NDB)">
+      <LabeledInput label="Score ajustado (Golpes realizados)">
         <TextInput
-          placeholder="86"
+          placeholder="0"
           keyboardType="numeric"
           value={adj}
           onChangeText={setAdj}

@@ -4,11 +4,11 @@
     "slug": "golf-handicap-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/handicap-pro-logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/handicap-pro-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,13 +17,19 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/handicap-pro-logo.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "handicap.pro.v1"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/handicap-pro-logo.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4a38a6a8-5e2f-455c-9956-652ffc63e3fb"
+      }
     }
   }
 }
