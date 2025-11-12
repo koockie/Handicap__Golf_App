@@ -1,5 +1,5 @@
 // src/screens/RankingScreen.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react'; // <-- 1. IMPORTAR useCallback
 import {
   View,
   FlatList,
@@ -9,11 +9,11 @@ import {
   Button,
   TouchableOpacity,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // <-- 2. IMPORTAR useFocusEffect
 import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-// --- 1. Importar la función de cálculo ---
 import { computeCourseHandicap } from '../utils/handicap';
 
 type RankingRow = {
@@ -24,21 +24,22 @@ type RankingRow = {
 
 type RankingNav = NativeStackNavigationProp<RootStackParamList, 'Ranking'>;
 
-// --- 2. Definir constantes del club ---
+// Constantes del club
 const PAPUDO_CR = 65.6;
 const PAPUDO_SR = 115;
-const PAPUDO_PAR = 66;
+const PAPUDO_PAR = 68;
 
 export default function RankingScreen({ navigation }: { navigation: RankingNav }) {
   const [players, setPlayers] = useState<RankingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<'asc' | 'desc'>('asc');
 
-  const loadRanking = async () => {
+  // --- 3. Envolver 'loadRanking' en useCallback ---
+  const loadRanking = useCallback(async () => {
+    // (Esta función es async, devuelve Promise<void>)
     try {
       setLoading(true);
 
-      //obtiene perfiles de jugadores
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name')
@@ -47,15 +48,13 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
 
       if (profilesError) throw profilesError;
 
-      //Obtenemos solo los hándicaps no nulos
       const { data: handicaps, error: hError } = await supabase
         .from('player_handicap')
         .select('player_id, handicap_index')
-        .not('handicap_index', 'is', null);//solo jugadores con HI
+        .not('handicap_index', 'is', null);
 
       if (hError) throw hError;
 
-      // uno los datos 
       const rankedPlayers: RankingRow[] = [];
       for (const h of handicaps ?? []) {
         const p = profiles?.find((x) => x.id === h.player_id);
@@ -73,12 +72,18 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Dependencias vacías
 
+  // --- 4. CORRECCIÓN DE useFocusEffect ---
+  useFocusEffect(
+    useCallback(() => {
+      // Esta función interna es síncrona (devuelve void)
+      loadRanking(); // Y llama a nuestra función async
+    }, [loadRanking]) // Depende de la función 'loadRanking' memoizada
+  );
+
+  // --- 5. useEffect solo para suscripciones ---
   useEffect(() => {
-    loadRanking();
-
-    // Nos suscribimos a cambios en las rondas
     const channel = supabase
       .channel('realtime-ranking')
       .on(
@@ -86,7 +91,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
         { event: '*', schema: 'public', table: 'rounds' },
         () => loadRanking()
       )
-      .on( // También si se actualiza un perfil (ej. cambio de nombre)
+      .on( 
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
         () => loadRanking()
@@ -96,14 +101,15 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadRanking]); // Depender de la función memoizada
 
+  // Lógica de ordenamiento (sin cambios)
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
       if (sort === 'asc') {
-        return a.handicap_index - b.handicap_index; // Menor a Mayor
+        return a.handicap_index - b.handicap_index;
       } else {
-        return b.handicap_index - a.handicap_index; // Mayor a Menor
+        return b.handicap_index - a.handicap_index;
       }
     });
   }, [players, sort]);
@@ -129,14 +135,13 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
           data={sortedPlayers}
           keyExtractor={(item) => item.player_id}
           renderItem={({ item, index }) => {
-            // --- 3. Calcular HI y CH ---
-            const hi = item.handicap_index; // La query ya filtró nulos
+            // Calcular HI y CH
+            const hi = item.handicap_index;
             const ch = computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR);
-
+            
             return (
               <TouchableOpacity
                 style={styles.card}
-                //detalle del jugador (es de solo lectura para players)
                 onPress={() =>
                   navigation.navigate('PlayerDetail', {
                     playerId: item.player_id,
@@ -144,17 +149,15 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
                   })
                 }
               >
-                {/* Posición en el ranking */}
                 <View style={styles.rankPill}>
                   <Text style={styles.rankText}>{index + 1}</Text>
                 </View>
 
-                {/* Nombre */}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.display_name}</Text>
                 </View>
 
-                {/* --- 4. Mostrar HI y CH --- */}
+                {/* Mostrar HI y CH */}
                 <View style={styles.handicapBox}>
                   <Text style={styles.hiText}>{hi.toFixed(1)}</Text>
                   <Text style={styles.chText}>CH: {ch}</Text>
@@ -174,6 +177,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
   );
 }
 
+// --- 6. Estilos (Actualizados) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -212,29 +216,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-
-  // --- 5. Estilos para HI y CH ---
-  handicapBox: { // Renombrado de hiPill
+  handicapBox: { 
     backgroundColor: colors.dark,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 10, // Menos redondo
-    minWidth: 60, 
+    borderRadius: 10, 
+    minWidth: 50, 
     alignItems: 'center',
   },
   hiText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 16, // HI grande
+    fontSize: 16,
   },
-  chText: { // Nuevo estilo para CH
+  chText: {
     color: colors.light,
     fontWeight: '700',
     fontSize: 12,
     marginTop: 2,
   },
-  // --- Fin estilos ---
-  
   emptyText: {
     textAlign: 'center',
     marginTop: 30,

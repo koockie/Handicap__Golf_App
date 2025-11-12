@@ -101,7 +101,7 @@ export default function EditRoundModal({ route, navigation }: any){
 
       <LabeledInput label="Par">
         <TextInput
-          placeholder="66"
+          placeholder="68"
           keyboardType="numeric"
           value={par}
           onChangeText={setPar}

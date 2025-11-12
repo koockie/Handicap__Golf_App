@@ -1,34 +1,30 @@
 // src/screens/PlayerDetailScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react'; // <-- 1. IMPORTAR useCallback
 import { View, Text, FlatList, Button, Alert, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // <-- 2. IMPORTAR useFocusEffect
 import { supabase } from '../supabase';
 import { Round } from '../types';
 import { computeHandicapIndex, computeCourseHandicap } from '../utils/handicap';
 import { colors } from '../theme';
 
-// --- 1. Definir constantes del club ---
 const PAPUDO_CR = 65.6;
 const PAPUDO_SR = 115;
-const PAPUDO_PAR = 66;
+const PAPUDO_PAR = 68; 
 
 export default function PlayerDetailScreen({ route, navigation }: any) {
   const { playerId, displayName } = route.params;
   const [rounds, setRounds] = useState<Round[]>([]);
   const [hi, setHi] = useState<number | null>(null);
-  // --- 2. Añadir estado para el CH de Papudo ---
   const [chPapudo, setChPapudo] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const load = async () => {
+  // --- 3. Envolver 'load' en useCallback ---
+  const load = useCallback(async () => {
+    // (Esta función es async, devuelve Promise<void>)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return; 
 
-    const { data: me } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user!.id) 
-      .maybeSingle();
-    setIsAdmin(me?.role === 'admin');
+    // (Separamos la lógica de isAdmin para que no se recargue innecesariamente)
 
     const { data, error } = await supabase
       .from('rounds')
@@ -48,21 +44,40 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
     const calculatedHi = computeHandicapIndex(rs);
     setHi(calculatedHi);
 
-    // --- 3. Calcular y guardar el CH de Papudo ---
     if (calculatedHi !== null) {
       const papudoCH = computeCourseHandicap(calculatedHi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR);
       setChPapudo(papudoCH);
     } else {
-      setChPapudo(null); // Resetear si no hay HI
+      setChPapudo(null); 
     }
-  };
+  }, [playerId]); // 'playerId' es la dependencia
 
-  useEffect(() => { load(); }, [playerId]);
+  // --- 4. CORRECCIÓN DE useFocusEffect ---
+  useFocusEffect(
+    useCallback(() => {
+      // Esta función interna es síncrona (devuelve void)
+      load(); // Y llama a nuestra función async
+    }, [load]) // Depende de la función 'load' memoizada
+  );
+
+  // El useEffect para cargar el rol de admin solo se ejecuta una vez
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: me } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      setIsAdmin(me?.role === 'admin');
+    })();
+  }, []); // Se mantiene como estaba
 
   const deleteRound = async (id: string) => {
     const { error } = await supabase.from('rounds').delete().eq('id', id);
     if (error) return Alert.alert('Error', error.message);
-    await load(); // Recargar todo (incluido HI y CH)
+    await load(); // Recargar tras eliminar
   };
 
   return (
@@ -73,7 +88,6 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
       <Text style={styles.hiTitle}>
         Hándicap Index (HI): {hi !== null ? hi.toFixed(1) : '—'}
       </Text>
-      {/* --- 4. Mostrar el CH de Papudo --- */}
       <Text style={styles.chTitle}>
         H. de Juego (Papudo): {chPapudo !== null ? chPapudo : '—'}
       </Text>
@@ -91,13 +105,10 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
         data={rounds}
         keyExtractor={(r) => r.id}
         renderItem={({ item, index }) => {
-          // Manejo defensivo del SD
           const sd = Number.isFinite(item?.score_differential as any)
             ? (item.score_differential as number).toFixed(1)
             : '—';
 
-          // CALCULAR EL COURSE HANDICAP (CH) de la tarjeta
-          // (Este se mantiene como estaba, usa los datos de la tarjeta)
           const ch = (hi !== null && Number.isFinite(hi))
             ? computeCourseHandicap(hi, item.course_rating, item.course_slope, item.course_par)
             : null;
@@ -118,7 +129,6 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
                 <Text style={styles.line3}>
                   Score: <Text style={styles.scoreText}>{item.adjusted_score}</Text> | SD: <Text style={styles.sdText}>{sd}</Text>
                 </Text>
-                {/* Este CH es el de LA TARJETA, lo cual es correcto y se mantiene */}
                 <Text style={styles.lineCH}>
                   Hándicap de Juego (CH): <Text style={styles.chText}>{ch ?? 'N/A'}</Text>
                 </Text>
@@ -152,20 +162,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  // --- 5. Estilos ajustados ---
   hiTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.dark,
-    // marginBottom: 8, // Movido
   },
   chTitle: { // Estilo nuevo
     fontSize: 18,
     fontWeight: '600',
     color: colors.dark,
-    marginBottom: 8, // Añadido
+    marginBottom: 8, 
   },
-  // --- Fin de ajuste ---
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',

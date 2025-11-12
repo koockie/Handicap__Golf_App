@@ -1,5 +1,5 @@
 // src/screens/PlayersScreen.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react'; // <-- 1. IMPORTAR useCallback
 import {
   View,
   TextInput,
@@ -11,11 +11,11 @@ import {
   Alert,
   Button,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // <-- 2. IMPORTAR useFocusEffect
 import { supabase } from '../supabase';
 import { Role } from '../types';
 import { colors } from '../theme';
 import AdminPanel from '../components/AdminPanel';
-// --- 1. Importar la función de cálculo ---
 import { computeCourseHandicap } from '../utils/handicap';
 
 type PlayerRow = {
@@ -25,10 +25,10 @@ type PlayerRow = {
   handicap_index: number | null;
 };
 
-// --- 2. Definir constantes del club ---
+// Constantes del club
 const PAPUDO_CR = 65.6;
 const PAPUDO_SR = 115;
-const PAPUDO_PAR = 66;
+const PAPUDO_PAR = 68;
 
 export default function PlayersScreen({ navigation }: any) {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -37,7 +37,7 @@ export default function PlayersScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [busyDelete, setBusyDelete] = useState<string | null>(null);
 
-  // Verificar si el usuario actual es administrador (vía profiles.user_id = auth.user.id)
+  // Verificar admin (sin cambios)
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,12 +53,12 @@ export default function PlayersScreen({ navigation }: any) {
     })();
   }, []);
 
-  // Cargar todos los jugadores + hándicap
-  const loadPlayers = async () => {
+  // --- 3. Envolver 'loadPlayers' en useCallback ---
+  const loadPlayers = useCallback(async () => {
+    // (Esta función es async, devuelve Promise<void>)
     try {
       setLoading(true);
-
-      // 1) Obtener perfiles (OJO: ahora pedimos id)
+      
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name, role')
@@ -66,21 +66,18 @@ export default function PlayersScreen({ navigation }: any) {
 
       if (profilesError) throw profilesError;
 
-      // 2) Filtrar solo jugadores
       const playersOnly = (profiles ?? []).filter((p) => p.role === 'player');
 
-      // 3) Obtener hándicaps
       const { data: handicaps, error: hError } = await supabase
         .from('player_handicap')
         .select('player_id, handicap_index');
 
       if (hError) throw hError;
 
-      // 4) Vincular jugador con su HI (join por profiles.id)
       const playersData: PlayerRow[] = playersOnly.map((p: any) => {
         const h = handicaps?.find((x) => x.player_id === p.id);
         return {
-          user_id: p.id, // <- mapeamos profiles.id a la propiedad que usa la UI
+          user_id: p.id, 
           display_name: p.display_name || 'Sin nombre',
           role: p.role,
           handicap_index: h?.handicap_index ?? null,
@@ -93,13 +90,19 @@ export default function PlayersScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Dependencias vacías
 
-  // Suscripción realtime
+  // --- 4. CORRECCIÓN DE useFocusEffect ---
+  useFocusEffect(
+    useCallback(() => {
+      // Esta función interna es síncrona (devuelve void)
+      loadPlayers(); // Y llama a nuestra función async
+    }, [loadPlayers]) // Depende de la función 'loadPlayers' memoizada
+  );
+
+  // --- 5. useEffect solo para suscripciones ---
   useEffect(() => {
-    loadPlayers();
-
-    const channel = supabase
+    const profileChannel = supabase
       .channel('realtime-profiles')
       .on(
         'postgres_changes',
@@ -108,12 +111,24 @@ export default function PlayersScreen({ navigation }: any) {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    // --- 6. AÑADIR suscripción a 'rounds' ---
+    // (Usar un nombre de canal único)
+    const roundsChannel = supabase
+      .channel('realtime-rounds-for-playerslist') 
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rounds' },
+        () => loadPlayers() // Recarga los jugadores si una ronda cambia
+      )
+      .subscribe();
 
-  // Filtro por nombre
+    return () => {
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(roundsChannel); // <-- Limpiar ambas
+    };
+  }, [loadPlayers]); // Depender de la función memoizada
+
+  // Filtro por nombre (sin cambios)
   const filtered = useMemo(
     () =>
       players.filter((p) =>
@@ -122,7 +137,7 @@ export default function PlayersScreen({ navigation }: any) {
     [players, q]
   );
 
-  // Confirmación y eliminación (solo admins)
+  // Funciones de borrado (sin cambios)
   const confirmDelete = (player: PlayerRow) => {
     if (!isAdmin) return;
     Alert.alert(
@@ -143,11 +158,8 @@ export default function PlayersScreen({ navigation }: any) {
     try {
       setBusyDelete(player.user_id);
 
-      // IMPORTANTE:
-      // Ahora user_id = profiles.id (perfil), no el id de Auth.
-      // Llama a tu edge function pasando profileId.
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { profileId: player.user_id }, // <- enviar el id del perfil
+        body: { profileId: player.user_id }, 
       });
 
       if (error) throw error;
@@ -163,10 +175,8 @@ export default function PlayersScreen({ navigation }: any) {
 
   return (
     <View style={{ flex: 1, padding: 12, backgroundColor: colors.bg }}>
-      {/* Panel admin */}
       {isAdmin && <AdminPanel onUserCreated={loadPlayers} />}
 
-      {/* Botón de Ranking visible para todos */}
       <View style={{ marginBottom: 8, marginTop: isAdmin ? 0 : 8 }}>
         <Button
           title="Ver Ranking"
@@ -189,7 +199,7 @@ export default function PlayersScreen({ navigation }: any) {
           data={filtered}
           keyExtractor={(x) => x.user_id}
           renderItem={({ item }) => {
-            // --- 3. Calcular HI y CH ---
+            // Calcular HI y CH
             const hi = item.handicap_index;
             const ch = (hi !== null)
               ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR)
@@ -199,7 +209,7 @@ export default function PlayersScreen({ navigation }: any) {
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate('PlayerDetail', {
-                    playerId: item.user_id, // <- pasa profiles.id
+                    playerId: item.user_id,
                     displayName: item.display_name,
                   })
                 }
@@ -212,7 +222,7 @@ export default function PlayersScreen({ navigation }: any) {
                   </Text>
                 </View>
 
-                {/* --- 4. Mostrar HI y CH --- */}
+                {/* Mostrar HI y CH */}
                 <View style={styles.handicapBox}>
                   <Text style={styles.hiText}>
                     HI: {hi !== null ? hi.toFixed(1) : '—'}
@@ -245,6 +255,7 @@ export default function PlayersScreen({ navigation }: any) {
   );
 }
 
+// --- 7. Estilos (Actualizados) ---
 const styles = StyleSheet.create({
   search: {
     borderWidth: 1,
@@ -272,27 +283,25 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700', color: colors.text },
   subtext: { fontSize: 12, color: '#888', marginTop: 2 },
   
-  // --- 5. Estilos para HI y CH ---
-  handicapBox: { // Renombrado de hiPill
+  handicapBox: { 
     backgroundColor: colors.dark,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 10, // Menos redondo
+    borderRadius: 10,
     alignItems: 'center',
     minWidth: 60,
   },
   hiText: { 
     color: '#fff', 
     fontWeight: '700',
-    fontSize: 14, // HI
+    fontSize: 14,
   },
-  chText: { // Nuevo estilo para CH
-    color: colors.light, // Un color más suave
-    fontWeight: '700',
-    fontSize: 12,
-    marginTop: 2,
+  chText: { 
+    color: colors.light,
+    fontWeight: '700', 
+    fontSize: 12, 
+    marginTop: 2 
   },
-  // --- Fin estilos ---
   
   deleteBtn: {
     marginLeft: 8,

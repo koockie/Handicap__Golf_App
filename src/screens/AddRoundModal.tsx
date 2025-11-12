@@ -14,7 +14,7 @@ export default function AddRoundModal({ route, navigation }: any){
   // const [courseName, setCourseName] = useState(''); 
   const [cr, setCr] = useState('65.6');    // defaults iniciales
   const [slope, setSlope] = useState('115');
-  const [par, setPar] = useState('66');
+  const [par, setPar] = useState('68');
   const [pcc, setPcc] = useState('0');
   const [adj, setAdj] = useState('');
 
@@ -107,7 +107,7 @@ export default function AddRoundModal({ route, navigation }: any){
 
       <LabeledInput label="Par">
         <TextInput
-          placeholder="66"
+          placeholder="68"
           keyboardType="numeric"
           value={par}
           onChangeText={setPar}
