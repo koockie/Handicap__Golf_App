@@ -18,7 +18,7 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
   const [chPapudo, setChPapudo] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // --- 3. Envolver 'load' en useCallback ---
+  
   const load = useCallback(async () => {
     // (Esta función es async, devuelve Promise<void>)
     const { data: { user } } = await supabase.auth.getUser();
@@ -52,12 +52,11 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
     }
   }, [playerId]); // 'playerId' es la dependencia
 
-  // --- 4. CORRECCIÓN DE useFocusEffect ---
+  // CORRECCIÓN DE useFocusEffect 
   useFocusEffect(
     useCallback(() => {
-      // Esta función interna es síncrona (devuelve void)
-      load(); // Y llama a nuestra función async
-    }, [load]) // Depende de la función 'load' memoizada
+      load(); 
+    }, [load]) 
   );
 
   // El useEffect para cargar el rol de admin solo se ejecuta una vez
@@ -72,12 +71,12 @@ export default function PlayerDetailScreen({ route, navigation }: any) {
         .maybeSingle();
       setIsAdmin(me?.role === 'admin');
     })();
-  }, []); // Se mantiene como estaba
+  }, []); 
 
   const deleteRound = async (id: string) => {
     const { error } = await supabase.from('rounds').delete().eq('id', id);
     if (error) return Alert.alert('Error', error.message);
-    await load(); // Recargar tras eliminar
+    await load(); 
   };
 
   return (
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.dark,
   },
-  chTitle: { // Estilo nuevo
+  chTitle: { 
     fontSize: 18,
     fontWeight: '600',
     color: colors.dark,

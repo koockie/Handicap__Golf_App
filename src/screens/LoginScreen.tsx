@@ -7,9 +7,9 @@ import {
   Alert,
   StyleSheet,
   Image,
-  KeyboardAvoidingView, // <-- 1. Importado
-  ScrollView,           // <-- 2. Importado
-  Platform,             // <-- 3. Importado
+  KeyboardAvoidingView,
+  ScrollView,          
+  Platform,           
 } from 'react-native';
 import { supabase } from '../supabase';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,12 +45,11 @@ export default function LoginScreen({ navigation }: { navigation: LoginNav }) {
   };
 
   return (
-    // --- 4. Envolver todo en el KeyboardAvoidingView ---
+    // mover login al centro y evitar teclado
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* --- 5. Envolver el contenido en un ScrollView --- */}
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
@@ -100,20 +99,20 @@ const styles = StyleSheet.create({
     flex: 1, // <- 6. Cambiado
     backgroundColor: colors.bg,
   },
-  // --- 7. Nuevo estilo para el ScrollView ---
+
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
   },
   logo: {
-    // --- 8. Logo más pequeño y re-centrado ---
-    width: 250, //antes 400
-    height: 250, //antes 400
+
+    width: 250, 
+    height: 250, 
     resizeMode: 'contain',
     alignSelf: 'center',
-    marginBottom: 10, // <- Reducido
-    borderRadius: 125, // <- Ajustado (mitad de width/height)
+    marginBottom: 10,  
+    borderRadius: 125, 
   },
   title: {
     fontSize: 24,

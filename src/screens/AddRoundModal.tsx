@@ -4,15 +4,13 @@ import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { computeScoreDifferential } from '../utils/handicap';
 
-// --- 1. Definir el nombre del club aquí ---
 const CLUB_NAME = "Club de Golf Papudo";
 
 export default function AddRoundModal({ route, navigation }: any){
   const { playerId } = route.params || {};
   const [playedAt, setPlayedAt] = useState<string>(new Date().toISOString().slice(0,10));
-  // --- 2. Quitar el useState de courseName ---
-  // const [courseName, setCourseName] = useState(''); 
-  const [cr, setCr] = useState('65.6');    // defaults iniciales
+
+  const [cr, setCr] = useState('65.6'); 
   const [slope, setSlope] = useState('115');
   const [par, setPar] = useState('68');
   const [pcc, setPcc] = useState('0');
@@ -52,7 +50,7 @@ export default function AddRoundModal({ route, navigation }: any){
         player_id: ownerId,
         played_at: playedAt,
         course_id: null,
-        course_name: CLUB_NAME, // <-- 3. Usar el valor harcodeado
+        course_name: CLUB_NAME,
         course_rating: CR,
         course_slope: S,
         course_par: PAR,

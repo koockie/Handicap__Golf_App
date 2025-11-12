@@ -1,5 +1,5 @@
 // src/screens/RankingScreen.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react'; // <-- 1. IMPORTAR useCallback
+import React, { useEffect, useMemo, useState, useCallback } from 'react'; 
 import {
   View,
   FlatList,
@@ -9,7 +9,7 @@ import {
   Button,
   TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native'; // <-- 2. IMPORTAR useFocusEffect
+import { useFocusEffect } from '@react-navigation/native'; 
 import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,9 +34,9 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<'asc' | 'desc'>('asc');
 
-  // --- 3. Envolver 'loadRanking' en useCallback ---
+
   const loadRanking = useCallback(async () => {
-    // (Esta función es async, devuelve Promise<void>)
+  
     try {
       setLoading(true);
 
@@ -72,17 +72,17 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
     } finally {
       setLoading(false);
     }
-  }, []); // Dependencias vacías
+  }, []); 
 
-  // --- 4. CORRECCIÓN DE useFocusEffect ---
+
   useFocusEffect(
     useCallback(() => {
-      // Esta función interna es síncrona (devuelve void)
-      loadRanking(); // Y llama a nuestra función async
-    }, [loadRanking]) // Depende de la función 'loadRanking' memoizada
+
+      loadRanking(); 
+    }, [loadRanking]) 
   );
 
-  // --- 5. useEffect solo para suscripciones ---
+
   useEffect(() => {
     const channel = supabase
       .channel('realtime-ranking')
@@ -101,9 +101,9 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadRanking]); // Depender de la función memoizada
+  }, [loadRanking]); 
 
-  // Lógica de ordenamiento (sin cambios)
+  // Lógica de ordenamiento 
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
       if (sort === 'asc') {
@@ -177,7 +177,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
   );
 }
 
-// --- 6. Estilos (Actualizados) ---
+// --- 6. Estilos 
 const styles = StyleSheet.create({
   container: {
     flex: 1,

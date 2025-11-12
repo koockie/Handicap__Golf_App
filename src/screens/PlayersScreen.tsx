@@ -11,7 +11,7 @@ import {
   Alert,
   Button,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native'; // <-- 2. IMPORTAR useFocusEffect
+import { useFocusEffect } from '@react-navigation/native'; 
 import { supabase } from '../supabase';
 import { Role } from '../types';
 import { colors } from '../theme';
@@ -37,7 +37,7 @@ export default function PlayersScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [busyDelete, setBusyDelete] = useState<string | null>(null);
 
-  // Verificar admin (sin cambios)
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,9 +53,9 @@ export default function PlayersScreen({ navigation }: any) {
     })();
   }, []);
 
-  // --- 3. Envolver 'loadPlayers' en useCallback ---
+
   const loadPlayers = useCallback(async () => {
-    // (Esta función es async, devuelve Promise<void>)
+
     try {
       setLoading(true);
       
@@ -90,17 +90,16 @@ export default function PlayersScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  }, []); // Dependencias vacías
+  }, []); 
 
-  // --- 4. CORRECCIÓN DE useFocusEffect ---
+
   useFocusEffect(
     useCallback(() => {
-      // Esta función interna es síncrona (devuelve void)
-      loadPlayers(); // Y llama a nuestra función async
-    }, [loadPlayers]) // Depende de la función 'loadPlayers' memoizada
+
+      loadPlayers(); 
+    }, [loadPlayers]) 
   );
 
-  // --- 5. useEffect solo para suscripciones ---
   useEffect(() => {
     const profileChannel = supabase
       .channel('realtime-profiles')
@@ -111,8 +110,7 @@ export default function PlayersScreen({ navigation }: any) {
       )
       .subscribe();
 
-    // --- 6. AÑADIR suscripción a 'rounds' ---
-    // (Usar un nombre de canal único)
+
     const roundsChannel = supabase
       .channel('realtime-rounds-for-playerslist') 
       .on(
@@ -124,9 +122,9 @@ export default function PlayersScreen({ navigation }: any) {
 
     return () => {
       supabase.removeChannel(profileChannel);
-      supabase.removeChannel(roundsChannel); // <-- Limpiar ambas
+      supabase.removeChannel(roundsChannel); 
     };
-  }, [loadPlayers]); // Depender de la función memoizada
+  }, [loadPlayers]); 
 
   // Filtro por nombre (sin cambios)
   const filtered = useMemo(
@@ -187,6 +185,7 @@ export default function PlayersScreen({ navigation }: any) {
 
       <TextInput
         placeholder="Buscar jugador..."
+        placeholderTextColor="#999"
         style={styles.search}
         value={q}
         onChangeText={setQ}
