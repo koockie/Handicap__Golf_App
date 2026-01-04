@@ -48,6 +48,7 @@ export default function RegisterScreen({ navigation }: { navigation: RegisterNav
       <Text style={styles.title}>Crear nueva cuenta</Text>
       <TextInput
         placeholder="Correo electrónico"
+        placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
         style={styles.input}
@@ -56,6 +57,7 @@ export default function RegisterScreen({ navigation }: { navigation: RegisterNav
       />
       <TextInput
         placeholder="Contraseña"
+        placeholderTextColor="#999"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
