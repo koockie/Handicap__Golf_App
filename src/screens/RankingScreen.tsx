@@ -159,8 +159,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
 
                 {/* Mostrar HI y CH */}
                 <View style={styles.handicapBox}>
-                  <Text style={styles.hiText}>{hi.toFixed(1)}</Text>
-                  <Text style={styles.chText}>CH: {ch}</Text>
+                  <Text style={styles.chText}>Hándicap: {ch}</Text>
                 </View>
                 
               </TouchableOpacity>

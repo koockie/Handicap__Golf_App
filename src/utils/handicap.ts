@@ -7,60 +7,62 @@ export function computeScoreDifferential(adjusted: number, CR: number, SR: numbe
   return Math.round(sd * 10) / 10;
 }
 
-/** (Opcional) Course Handicap, útil si luego calculas NDB por hoyo en la app */
+/** Course Handicap */
 export function computeCourseHandicap(HI: number, CR: number, SR: number, PAR: number): number {
   return Math.round((HI * SR) / 113 + (CR - PAR));
 }
 
-/** Tu HI actual (promedio de las k mejores, k = min(8, n)) */
+/**este calculo tambien ser ealiza en base de  datos con view player_handicap para mostrar en ranking,
+ *  este calculo se realiza para ser mostrado en playerDetailScreen y playersScreen */
+
 export function computeHandicapIndex(rounds: Round[]): number | null {
   if (!rounds?.length) return null;
+  
+  // 1. Ordenar por fecha (más reciente primero)
+  // Aseguramos que 'played_at' sea tratado como fecha correctamente
   const last20 = [...rounds]
     .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
     .slice(0, 20);
 
+  // 2. Extraer Score Differentials válidos
   const sds = last20
     .map(r => r.score_differential)
-    .filter(x => Number.isFinite(x)) as number[];
-  if (sds.length < 3) return null;
+    .filter(x => x !== null && x !== undefined && Number.isFinite(x)) as number[];
 
-  const k = Math.min(8, sds.length);
-  const best = [...sds].sort((a, b) => a - b).slice(0, k);
-  const avg = best.reduce((s, x) => s + x, 0) / k;
-  return Math.round(avg * 10) / 10;
-}
+  const n = sds.length;
+  if (n < 3) return null; // Se requieren al menos 3 tarjetas
 
-/** (Opcional) WHS exacto 3..20 tarjetas */
-export function computeHandicapIndexWHS(rounds: Round[]): number | null {
-  if (!rounds?.length) return null;
-  const last20 = [...rounds]
-    .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
-    .slice(0, 20);
 
-  const sds = last20
-    .map(r => r.score_differential)
-    .filter(x => Number.isFinite(x)) as number[];
-
-  const rule = whsRule(sds.length);
-  if (!rule) return null;
-
+  const rule = getWhsRule(n);
+  
+  // 4. Seleccionar las mejores (más bajas) según la regla
   const best = [...sds].sort((a, b) => a - b).slice(0, rule.use);
+  
+  // 5. Promediar
   let avg = best.reduce((s, x) => s + x, 0) / rule.use;
+  
+  // 6. Aplicar ajuste (si aplica, ej: -1.0 o -2.0)
   if (rule.minus) avg -= rule.minus;
+
+  // 7. Redondear a un decimal
   return Math.round(avg * 10) / 10;
 }
 
-function whsRule(n: number): { use: number; minus?: number } | null {
-  if (n < 3) return null;
-  if (n === 3) return { use: 1, minus: 2 };
-  if (n === 4) return { use: 1, minus: 1 };
+/**
+ * Tabla de reglas WHS oficial
+ */
+function getWhsRule(n: number): { use: number; minus?: number } {
+  if (n <= 3) return { use: 1, minus: 2.0 };
+  if (n === 4) return { use: 1, minus: 1.0 };
   if (n === 5) return { use: 1 };
-  if (n === 6) return { use: 2, minus: 1 };
-  if (n === 7) return { use: 2 };
-  if (n >= 8 && n <= 11) return { use: 3 };
+  if (n === 6) return { use: 2, minus: 1.0 };
+  if (n === 7 || n === 8) return { use: 2 };
+  if (n >= 9 && n <= 11) return { use: 3 };
   if (n >= 12 && n <= 14) return { use: 4 };
   if (n >= 15 && n <= 16) return { use: 5 };
   if (n >= 17 && n <= 18) return { use: 6 };
   if (n === 19) return { use: 7 };
-  return { use: 8 };
+  return { use: 8 }; // 20 tarjetas
 }
+
+export const computeHandicapIndexWHS = computeHandicapIndex;

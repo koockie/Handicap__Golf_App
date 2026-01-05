@@ -223,11 +223,8 @@ export default function PlayersScreen({ navigation }: any) {
 
                 {/* Mostrar HI y CH */}
                 <View style={styles.handicapBox}>
-                  <Text style={styles.hiText}>
-                    HI: {hi !== null ? hi.toFixed(1) : '—'}
-                  </Text>
                   <Text style={styles.chText}>
-                    CH: {ch !== null ? ch : '—'}
+                    Hándicap: {ch !== null ? ch : '—'}
                   </Text>
                 </View>
 
