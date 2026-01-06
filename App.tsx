@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { Alert, View, Pressable, Text } from 'react-native';
+import { Alert, View, Pressable, Text, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { supabase } from './src/supabase';
@@ -23,30 +23,47 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<'admin' | 'player' | null>(null);
+  
+  // NUEVO: Estado para saber si estamos cargando el rol y evitar parpadeos
+  const [loadingRole, setLoadingRole] = useState(false);
 
+  // 1. Escuchar sesión
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // 2. Cargar rol del usuario cuando hay sesión
   useEffect(() => {
     (async () => {
       if (!session) {
         setRole(null);
         return;
       }
+      
+      // Iniciamos carga del rol
+      setLoadingRole(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setRole(null);
+        setLoadingRole(false);
         return;
       }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (!error && data) setRole(data.role as 'admin' | 'player');
+
+      if (!error && data) {
+        setRole(data.role as 'admin' | 'player');
+      }
+      
+      // Terminamos carga
+      setLoadingRole(false);
     })();
   }, [session]);
 
@@ -80,9 +97,19 @@ export default function App() {
     ),
   };
 
+  // 3. Pantalla de carga intermedia (evita el warning y parpadeos)
+  if (session && loadingRole) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.dark} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       {!session ? (
+        // STACK NO AUTENTICADO
         <Stack.Navigator
           screenOptions={{
             headerStyle: { backgroundColor: colors.dark },
@@ -95,11 +122,9 @@ export default function App() {
           <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registro' }} />
         </Stack.Navigator>
       ) : role === 'admin' ? (
+        // STACK ADMIN
         <Stack.Navigator screenOptions={screenOptionsWithLogout}>
-          
-          {/* CORRECCIÓN AQUÍ: El nombre es AdminHomeScreen */}
           <Stack.Screen name="AdminHomeScreen" component={AdminHomeScreen} options={{ title: 'Administrador' }} />
-          
           <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
           <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} options={({ route }) => ({ title: route.params?.displayName ?? 'Detalle' })} />
           <Stack.Screen name="Ranking" component={RankingScreen} options={{ title: 'Ranking' }} />
@@ -107,6 +132,7 @@ export default function App() {
           <Stack.Screen name="EditRound" component={EditRoundModal} options={{ title: 'Editar tarjeta' }} />
         </Stack.Navigator>
       ) : (
+        // STACK JUGADOR
         <Stack.Navigator screenOptions={screenOptionsWithLogout}>
           <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
           <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} options={({ route }) => ({ title: route.params?.displayName ?? 'Detalle' })} />

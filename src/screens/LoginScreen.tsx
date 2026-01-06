@@ -31,8 +31,9 @@ export default function LoginScreen({ navigation }: { navigation: LoginNav }) {
     try {
       setLoading(true);
       
-      // 1. Login
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      // 1. Iniciar sesión en Supabase
+      // NOTA: Ya no navegamos manualmente aquí. App.tsx detectará el cambio de sesión.
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
         if (/email.*not.*confirmed/i.test(error.message)) {
@@ -41,23 +42,8 @@ export default function LoginScreen({ navigation }: { navigation: LoginNav }) {
         return Alert.alert('Error', error.message);
       }
 
-      // 2. Verificar Rol y Redirigir
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
-
-        if (profile?.role === 'admin') {
-          // Si es Admin -> Va al AdminHomeScreen (donde crea jugadores)
-          navigation.replace('AdminHomeScreen' as any);
-        } else {
-          // Si es Player -> Va a la lista de jugadores (o Tabs)
-          navigation.replace('Players' as any); 
-        }
-      }
-
+      // Al no haber error, el usuario queda logueado y el estado de sesión cambia globalmente.
+      
     } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {
