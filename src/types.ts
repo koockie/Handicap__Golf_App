@@ -27,7 +27,10 @@ export interface Round {
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  AdminHome: undefined;
+  
+  // CORRECCIÓN: Usamos el nombre exacto del componente para evitar confusiones
+  AdminHomeScreen: undefined; 
+  
   Players: undefined;
   PlayerDetail: { playerId: string; displayName: string };
   AddRound: { playerId: string };

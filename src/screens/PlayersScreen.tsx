@@ -1,21 +1,13 @@
 // src/screens/PlayersScreen.tsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react'; // <-- 1. IMPORTAR useCallback
+import React, { useEffect, useMemo, useState, useCallback } from 'react'; 
 import {
-  View,
-  TextInput,
-  FlatList,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Button,
+  View, TextInput, FlatList, Text, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, Button,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native'; 
 import { supabase } from '../supabase';
 import { Role } from '../types';
 import { colors } from '../theme';
-import AdminPanel from '../components/AdminPanel';
 import { computeCourseHandicap } from '../utils/handicap';
 
 type PlayerRow = {
@@ -25,7 +17,6 @@ type PlayerRow = {
   handicap_index: number | null;
 };
 
-// Constantes del club
 const PAPUDO_CR = 65.6;
 const PAPUDO_SR = 115;
 const PAPUDO_PAR = 68;
@@ -37,28 +28,20 @@ export default function PlayersScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [busyDelete, setBusyDelete] = useState<string | null>(null);
 
-
+  // 1. Verificar Admin
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
+      const { data } = await supabase.from('profiles').select('role').eq('user_id', user.id).maybeSingle();
       setIsAdmin(data?.role === 'admin');
     })();
   }, []);
 
-
+  // 2. Cargar Lista
   const loadPlayers = useCallback(async () => {
-
     try {
       setLoading(true);
-      
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name, role')
@@ -86,106 +69,64 @@ export default function PlayersScreen({ navigation }: any) {
 
       setPlayers(playersData);
     } catch (err) {
-      console.error('Error cargando jugadores:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }, []); 
 
+  useFocusEffect(useCallback(() => { loadPlayers(); }, [loadPlayers]));
 
-  useFocusEffect(
-    useCallback(() => {
-
-      loadPlayers(); 
-    }, [loadPlayers]) 
-  );
-
-  useEffect(() => {
-    const profileChannel = supabase
-      .channel('realtime-profiles')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        () => loadPlayers()
-      )
-      .subscribe();
-
-
-    const roundsChannel = supabase
-      .channel('realtime-rounds-for-playerslist') 
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rounds' },
-        () => loadPlayers() // Recarga los jugadores si una ronda cambia
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(profileChannel);
-      supabase.removeChannel(roundsChannel); 
-    };
-  }, [loadPlayers]); 
-
-  // Filtro por nombre (sin cambios)
-  const filtered = useMemo(
-    () =>
-      players.filter((p) =>
-        p.display_name?.toLowerCase().includes(q.toLowerCase())
-      ),
-    [players, q]
-  );
-
-  // Funciones de borrado (sin cambios)
+  // Lógica de borrado
   const confirmDelete = (player: PlayerRow) => {
     if (!isAdmin) return;
-    Alert.alert(
-      'Eliminar deportista',
-      `¿Eliminar a "${player.display_name}"? Se borrará su perfil y sus tarjetas.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => doDelete(player),
-        },
-      ]
-    );
+    Alert.alert('Eliminar', `¿Borrar a ${player.display_name}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => doDelete(player) },
+    ]);
   };
 
   const doDelete = async (player: PlayerRow) => {
     try {
       setBusyDelete(player.user_id);
-
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { profileId: player.user_id }, 
       });
-
       if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error || 'No se pudo eliminar.');
-
       await loadPlayers();
     } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'No se pudo eliminar.');
+      Alert.alert('Error', err?.message);
     } finally {
       setBusyDelete(null);
     }
   };
 
+  const filtered = useMemo(() => players.filter((p) => p.display_name?.toLowerCase().includes(q.toLowerCase())), [players, q]);
+
   return (
     <View style={{ flex: 1, padding: 12, backgroundColor: colors.bg }}>
-      {isAdmin && <AdminPanel onUserCreated={loadPlayers} />}
-
-      <View style={{ marginBottom: 8, marginTop: isAdmin ? 0 : 8 }}>
+      
+      {/* --- BOTONES DE ACCIÓN --- */}
+      <View style={{ marginBottom: 12, gap: 8 }}>
+        {/* 1. Volver al Dashboard (Solo admin) - Nombre corregido: AdminHomeScreen */}
+        {isAdmin && (
+           <Button 
+             title="⬅ Volver al Menú Admin" 
+             onPress={() => navigation.navigate('AdminHomeScreen')} 
+             color={colors.dark} 
+           />
+        )}
+        
+        {/* 2. Ver Ranking (RESTAURADO) */}
         <Button
-          title="Ver Ranking"
+          title="Ver Ranking Completo"
           onPress={() => navigation.navigate('Ranking')}
-          color={colors.dark}
+          color="#2c3e50" // Un color un poco distinto para diferenciar
         />
       </View>
 
       <TextInput
         placeholder="Buscar jugador..."
-        placeholderTextColor="#999"
         style={styles.search}
         value={q}
         onChangeText={setQ}
@@ -198,48 +139,23 @@ export default function PlayersScreen({ navigation }: any) {
           data={filtered}
           keyExtractor={(x) => x.user_id}
           renderItem={({ item }) => {
-            // Calcular HI y CH
             const hi = item.handicap_index;
-            const ch = (hi !== null)
-              ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR)
-              : null;
-              
+            const ch = (hi !== null) ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR) : null;
             return (
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('PlayerDetail', {
-                    playerId: item.user_id,
-                    displayName: item.display_name,
-                  })
-                }
+                onPress={() => navigation.navigate('PlayerDetail', { playerId: item.user_id, displayName: item.display_name })}
                 style={styles.card}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.display_name}</Text>
-                  <Text style={styles.subtext}>
-                    {item.role === 'admin' ? 'Administrador' : 'Jugador'}
-                  </Text>
+                  <Text style={styles.subtext}>{item.role}</Text>
                 </View>
-
-                {/* Mostrar HI y CH */}
                 <View style={styles.handicapBox}>
-                  <Text style={styles.chText}>
-                    Hándicap: {ch !== null ? ch : '—'}
-                  </Text>
+                  <Text style={styles.chText}>Hándicap: {ch ?? '—'}</Text>
                 </View>
-
                 {isAdmin && (
-                  <TouchableOpacity
-                    onPress={() => confirmDelete(item)}
-                    style={[
-                      styles.deleteBtn,
-                      busyDelete === item.user_id && { opacity: 0.6 },
-                    ]}
-                    disabled={busyDelete === item.user_id}
-                  >
-                    <Text style={styles.deleteTxt}>
-                      {busyDelete === item.user_id ? '...' : 'Eliminar'}
-                    </Text>
+                  <TouchableOpacity onPress={() => confirmDelete(item)} style={styles.deleteBtn}>
+                     <Text style={styles.deleteTxt}>{busyDelete === item.user_id ? '...' : 'X'}</Text>
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
@@ -251,60 +167,13 @@ export default function PlayersScreen({ navigation }: any) {
   );
 }
 
-// --- 7. Estilos (Actualizados) ---
 const styles = StyleSheet.create({
-  search: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
+  search: { borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 10, marginBottom: 8, backgroundColor: '#fff' },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: '#fff', marginBottom: 8 },
   name: { fontSize: 16, fontWeight: '700', color: colors.text },
   subtext: { fontSize: 12, color: '#888', marginTop: 2 },
-  
-  handicapBox: { 
-    backgroundColor: colors.dark,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    minWidth: 60,
-  },
-  hiText: { 
-    color: '#fff', 
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  chText: { 
-    color: colors.light,
-    fontWeight: '700', 
-    fontSize: 12, 
-    marginTop: 2 
-  },
-  
-  deleteBtn: {
-    marginLeft: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: '#ff4d4d',
-  },
+  handicapBox: { backgroundColor: colors.dark, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', minWidth: 60 },
+  chText: { color: colors.light, fontWeight: '700', fontSize: 12 },
+  deleteBtn: { marginLeft: 8, padding: 10, borderRadius: 10, backgroundColor: '#ff4d4d' },
   deleteTxt: { color: '#fff', fontWeight: '700' },
 });

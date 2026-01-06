@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿// src/screens/RegisterScreen.tsx
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../supabase';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';

@@ -1,3 +1,4 @@
+// src/screens/ProfileScreen.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
 import { supabase } from '../supabase';

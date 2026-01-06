@@ -49,7 +49,7 @@ export function computeHandicapIndex(rounds: Round[]): number | null {
 }
 
 /**
- * Tabla de reglas WHS oficial
+ * Tabla de reglas WHS oficial sobre cuantas tarjetas promediar segun el total de tarjetas ingresadas
  */
 function getWhsRule(n: number): { use: number; minus?: number } {
   if (n <= 3) return { use: 1, minus: 2.0 };
