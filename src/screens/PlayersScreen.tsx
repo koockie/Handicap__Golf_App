@@ -2,13 +2,16 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'; 
 import {
   View, TextInput, FlatList, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Button,
+  ActivityIndicator, Alert, ImageBackground, Dimensions
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native'; 
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
 import { Role } from '../types';
 import { colors } from '../theme';
 import { computeCourseHandicap } from '../utils/handicap';
+
+const { width } = Dimensions.get('window');
 
 type PlayerRow = {
   user_id: string; 
@@ -104,76 +107,196 @@ export default function PlayersScreen({ navigation }: any) {
   const filtered = useMemo(() => players.filter((p) => p.display_name?.toLowerCase().includes(q.toLowerCase())), [players, q]);
 
   return (
-    <View style={{ flex: 1, padding: 12, backgroundColor: colors.bg }}>
-      
-      {/* --- BOTONES DE ACCIÓN --- */}
-      <View style={{ marginBottom: 12, gap: 8 }}>
-        {/* 1. Volver al Dashboard (Solo admin) - Nombre corregido: AdminHomeScreen */}
-        {isAdmin && (
-           <Button 
-             title="⬅ Volver al Menú Admin" 
-             onPress={() => navigation.navigate('AdminHomeScreen')} 
-             color={colors.dark} 
-           />
-        )}
-        
-        {/* 2. Ver Ranking (RESTAURADO) */}
-        <Button
-          title="Ver Ranking Completo"
-          onPress={() => navigation.navigate('Ranking')}
-          color="#2c3e50" // Un color un poco distinto para diferenciar
-        />
-      </View>
+    <ImageBackground
+        source={require('../../assets/fondo.jpg')} 
+        style={styles.background}
+        resizeMode="cover"
+    >
+      <LinearGradient
+        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
+        style={styles.gradient}
+      >
+        <View style={styles.container}>
+          
+          <Text style={styles.screenTitle}>Directorio de Jugadores</Text>
 
-      <TextInput
-        placeholder="Buscar jugador..."
-        style={styles.search}
-        value={q}
-        onChangeText={setQ}
-      />
+          {/* --- BOTONES DE ACCIÓN SUPERIORES --- */}
+          <View style={styles.topActions}>
+            {/* 1. Volver (Solo Admin) */}
+            {isAdmin && (
+               <TouchableOpacity 
+                 style={[styles.actionBtn, styles.backBtn]}
+                 onPress={() => navigation.navigate('AdminHomeScreen')}
+               >
+                 <Text style={styles.btnText}>⬅ Menú Admin</Text>
+               </TouchableOpacity>
+            )}
+            
+            {/* 2. Ranking */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.rankingBtn, !isAdmin && { flex: 1 }]}
+              onPress={() => navigation.navigate('Ranking')}
+            >
+              <Text style={styles.btnText}>🏆 Ver Ranking</Text>
+            </TouchableOpacity>
+          </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.dark} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(x) => x.user_id}
-          renderItem={({ item }) => {
-            const hi = item.handicap_index;
-            const ch = (hi !== null) ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR) : null;
-            return (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('PlayerDetail', { playerId: item.user_id, displayName: item.display_name })}
-                style={styles.card}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{item.display_name}</Text>
-                  <Text style={styles.subtext}>{item.role}</Text>
-                </View>
-                <View style={styles.handicapBox}>
-                  <Text style={styles.chText}>Hándicap: {ch ?? '—'}</Text>
-                </View>
-                {isAdmin && (
-                  <TouchableOpacity onPress={() => confirmDelete(item)} style={styles.deleteBtn}>
-                     <Text style={styles.deleteTxt}>{busyDelete === item.user_id ? '...' : 'X'}</Text>
+          {/* --- BUSCADOR --- */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              placeholder="🔍 Buscar por nombre..."
+              placeholderTextColor="#666"
+              style={styles.searchInput}
+              value={q}
+              onChangeText={setQ}
+            />
+          </View>
+
+          {/* --- LISTA --- */}
+          {loading ? (
+            <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={(x) => x.user_id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              renderItem={({ item }) => {
+                const hi = item.handicap_index;
+                const ch = (hi !== null) ? computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR) : null;
+                
+                return (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('PlayerDetail', { playerId: item.user_id, displayName: item.display_name })}
+                    activeOpacity={0.8}
+                    style={styles.card}
+                  >
+                    {/* Círculo decorativo (Avatar simple) */}
+                    <View style={styles.avatarCircle}>
+                        <Text style={styles.avatarText}>{item.display_name.charAt(0).toUpperCase()}</Text>
+                    </View>
+
+                    {/* Info Central */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{item.display_name}</Text>
+                      <Text style={styles.subtext}>
+                        {item.role === 'admin' ? 'Administrador' : 'Jugador'}
+                      </Text>
+                    </View>
+
+                    {/* Handicap Badge */}
+                    <View style={styles.handicapBox}>
+                      <Text style={styles.chLabel}>Hándicap</Text>
+                      <Text style={styles.chValue}>{ch ?? '—'}</Text>
+                    </View>
+
+                    {/* Botón Borrar (Admin) */}
+                    {isAdmin && (
+                      <TouchableOpacity 
+                        onPress={() => confirmDelete(item)} 
+                        style={styles.deleteBtn}
+                        disabled={busyDelete === item.user_id}
+                      >
+                         <Text style={styles.deleteTxt}>{busyDelete === item.user_id ? '...' : '✕'}</Text>
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-            );
-          }}
-        />
-      )}
-    </View>
+                );
+              }}
+            />
+          )}
+        </View>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  search: { borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 10, marginBottom: 8, backgroundColor: '#fff' },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: '#fff', marginBottom: 8 },
-  name: { fontSize: 16, fontWeight: '700', color: colors.text },
-  subtext: { fontSize: 12, color: '#888', marginTop: 2 },
-  handicapBox: { backgroundColor: colors.dark, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', minWidth: 60 },
-  chText: { color: colors.light, fontWeight: '700', fontSize: 12 },
-  deleteBtn: { marginLeft: 8, padding: 10, borderRadius: 10, backgroundColor: '#ff4d4d' },
-  deleteTxt: { color: '#fff', fontWeight: '700' },
+  background: { flex: 1, width: '100%' },
+  gradient: { flex: 1 },
+  container: { flex: 1, padding: 16, paddingTop: 50 },
+
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 20,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: {width: 0, height: 2},
+    textShadowRadius: 4,
+  },
+
+  // BOTONES SUPERIORES
+  topActions: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  actionBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 3,
+  },
+  backBtn: { backgroundColor: '#4a5568' }, // Gris azulado
+  rankingBtn: { backgroundColor: colors.dark }, // Verde corporativo
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+
+  // BUSCADOR
+  searchContainer: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 12,
+    marginBottom: 15,
+    paddingHorizontal: 5,
+  },
+  searchInput: {
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+  },
+
+  // TARJETA DE JUGADOR
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)', // Glassmorphism
+    marginBottom: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2,
+  },
+  avatarCircle: {
+    width: 40, height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarText: { fontSize: 18, fontWeight: 'bold', color: '#64748b' },
+  
+  name: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  subtext: { fontSize: 12, color: '#64748b', marginTop: 2 },
+
+  // BADGE HANDICAP
+  handicapBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dark,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    minWidth: 50,
+  },
+  chLabel: { fontSize: 9, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase' },
+  chValue: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+
+  // BORRAR
+  deleteBtn: {
+    width: 32, height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fee2e2', // Rojo muy suave
+    justifyContent: 'center', alignItems: 'center',
+    marginLeft: 5,
+    borderWidth: 1, borderColor: '#ef4444'
+  },
+  deleteTxt: { color: '#ef4444', fontWeight: 'bold', fontSize: 14 },
 });

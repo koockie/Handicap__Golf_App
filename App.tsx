@@ -23,35 +23,27 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<'admin' | 'player' | null>(null);
-  
-  // NUEVO: Estado para saber si estamos cargando el rol y evitar parpadeos
   const [loadingRole, setLoadingRole] = useState(false);
 
-  // 1. Escuchar sesión
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // 2. Cargar rol del usuario cuando hay sesión
   useEffect(() => {
     (async () => {
       if (!session) {
         setRole(null);
         return;
       }
-      
-      // Iniciamos carga del rol
       setLoadingRole(true);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setRole(null);
         setLoadingRole(false);
         return;
       }
-
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
@@ -61,23 +53,18 @@ export default function App() {
       if (!error && data) {
         setRole(data.role as 'admin' | 'player');
       }
-      
-      // Terminamos carga
       setLoadingRole(false);
     })();
   }, [session]);
 
   const handleLogout = async () => {
-    Alert.alert('Cerrar sesión', '¿Deseas salir de tu cuenta?', [
+    Alert.alert('Cerrar sesión', '¿Deseas salir?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: async () => {
+      { text: 'Salir', style: 'destructive', onPress: async () => {
           await supabase.auth.signOut();
           setSession(null);
           setRole(null);
-        },
+        }
       },
     ]);
   };
@@ -97,7 +84,6 @@ export default function App() {
     ),
   };
 
-  // 3. Pantalla de carga intermedia (evita el warning y parpadeos)
   if (session && loadingRole) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
@@ -109,7 +95,7 @@ export default function App() {
   return (
     <NavigationContainer>
       {!session ? (
-        // STACK NO AUTENTICADO
+        // NO AUTENTICADO
         <Stack.Navigator
           screenOptions={{
             headerStyle: { backgroundColor: colors.dark },
@@ -122,7 +108,7 @@ export default function App() {
           <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registro' }} />
         </Stack.Navigator>
       ) : role === 'admin' ? (
-        // STACK ADMIN
+        // ADMIN: 
         <Stack.Navigator screenOptions={screenOptionsWithLogout}>
           <Stack.Screen name="AdminHomeScreen" component={AdminHomeScreen} options={{ title: 'Administrador' }} />
           <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
@@ -132,12 +118,13 @@ export default function App() {
           <Stack.Screen name="EditRound" component={EditRoundModal} options={{ title: 'Editar tarjeta' }} />
         </Stack.Navigator>
       ) : (
-        // STACK JUGADOR
+        // JUGADOR: Solo ve su PERFIL (Aislado)
         <Stack.Navigator screenOptions={screenOptionsWithLogout}>
-          <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Jugadores' }} />
-          <Stack.Screen name="PlayerDetail" component={PlayerDetailScreen} options={({ route }) => ({ title: route.params?.displayName ?? 'Detalle' })} />
-          <Stack.Screen name="Ranking" component={RankingScreen} options={{ title: 'Ranking' }} />
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Mi perfil' }} />
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen} 
+            options={{ headerShown: false }} 
+          />
         </Stack.Navigator>
       )}
     </NavigationContainer>

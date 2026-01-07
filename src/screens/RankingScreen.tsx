@@ -1,15 +1,10 @@
 // src/screens/RankingScreen.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react'; 
 import {
-  View,
-  FlatList,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Button,
-  TouchableOpacity,
+  View, FlatList, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ImageBackground
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native'; 
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
 import { colors } from '../theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,7 +19,7 @@ type RankingRow = {
 
 type RankingNav = NativeStackNavigationProp<RootStackParamList, 'Ranking'>;
 
-// Constantes del club
+// Constantes del club (Asegúrate de que sean las correctas de tu cancha)
 const PAPUDO_CR = 65.6;
 const PAPUDO_SR = 115;
 const PAPUDO_PAR = 68;
@@ -34,12 +29,11 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<'asc' | 'desc'>('asc');
 
-
   const loadRanking = useCallback(async () => {
-  
     try {
       setLoading(true);
-
+      
+      // 1. Cargar perfiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name')
@@ -48,6 +42,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
 
       if (profilesError) throw profilesError;
 
+      // 2. Cargar Hándicaps
       const { data: handicaps, error: hError } = await supabase
         .from('player_handicap')
         .select('player_id, handicap_index')
@@ -55,6 +50,7 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
 
       if (hError) throw hError;
 
+      // 3. Unir datos
       const rankedPlayers: RankingRow[] = [];
       for (const h of handicaps ?? []) {
         const p = profiles?.find((x) => x.id === h.player_id);
@@ -74,171 +70,195 @@ export default function RankingScreen({ navigation }: { navigation: RankingNav }
     }
   }, []); 
 
+  useFocusEffect(useCallback(() => { loadRanking(); }, [loadRanking]));
 
-  useFocusEffect(
-    useCallback(() => {
-
-      loadRanking(); 
-    }, [loadRanking]) 
-  );
-
-
+  // Suscripción a cambios en tiempo real
   useEffect(() => {
     const channel = supabase
       .channel('realtime-ranking')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rounds' },
-        () => loadRanking()
-      )
-      .on( 
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        () => loadRanking()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rounds' }, () => loadRanking())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => loadRanking())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [loadRanking]); 
 
-  // Lógica de ordenamiento 
+  // Lógica de Ordenamiento
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
-      if (sort === 'asc') {
-        return a.handicap_index - b.handicap_index;
-      } else {
-        return b.handicap_index - a.handicap_index;
-      }
+      return sort === 'asc' 
+        ? a.handicap_index - b.handicap_index 
+        : b.handicap_index - a.handicap_index;
     });
   }, [players, sort]);
 
-  const toggleSort = () => {
-    setSort((current) => (current === 'asc' ? 'desc' : 'asc'));
+  const toggleSort = () => setSort((c) => (c === 'asc' ? 'desc' : 'asc'));
+
+  // Colores de Medallas
+  const getRankColor = (index: number) => {
+    if (index === 0) return '#FFD700'; // Oro
+    if (index === 1) return '#C0C0C0'; // Plata
+    if (index === 2) return '#CD7F32'; // Bronce
+    return 'rgba(255,255,255,0.2)'; // Resto
+  };
+
+  const getRankTextColor = (index: number) => {
+    if (index <= 2) return '#fff'; 
+    return '#333'; // Color oscuro para las medallas normales (si el fondo es claro) o blanco si prefieres
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.sortButtonContainer}>
-        <Button
-          title={`Ordenar: ${sort === 'asc' ? 'Mejor Hándicap (ASC)' : 'Peor Hándicap (DESC)'}`}
-          onPress={toggleSort}
-          color={colors.dark}
-        />
-      </View>
-
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.dark} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={sortedPlayers}
-          keyExtractor={(item) => item.player_id}
-          renderItem={({ item, index }) => {
-            // Calcular HI y CH
-            const hi = item.handicap_index;
-            const ch = computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR);
-            
-            return (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() =>
-                  navigation.navigate('PlayerDetail', {
-                    playerId: item.player_id,
-                    displayName: item.display_name,
-                  })
-                }
-              >
-                <View style={styles.rankPill}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{item.display_name}</Text>
-                </View>
-
-                {/* Mostrar HI y CH */}
-                <View style={styles.handicapBox}>
-                  <Text style={styles.chText}>Hándicap: {ch}</Text>
-                </View>
-                
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              No hay jugadores con hándicap calculado (se requieren 3 tarjetas).
+    <ImageBackground
+        source={require('../../assets/fondo.jpg')} 
+        style={styles.background}
+        resizeMode="cover"
+    >
+      <LinearGradient
+        colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)']}
+        style={styles.gradient}
+      >
+        <View style={styles.container}>
+          
+          <Text style={styles.headerTitle}>TABLA DE POSICIONES</Text>
+          
+          {/* BOTÓN ORDENAR */}
+          <TouchableOpacity onPress={toggleSort} style={styles.sortButton}>
+            <Text style={styles.sortButtonText}>
+              {sort === 'asc' ? '⬇ Mejor Hándicap' : '⬆ Peor Hándicap'}
             </Text>
-          }
-        />
-      )}
-    </View>
+          </TouchableOpacity>
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
+          ) : (
+            <FlatList
+              data={sortedPlayers}
+              keyExtractor={(item) => item.player_id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              renderItem={({ item, index }) => {
+                const hi = item.handicap_index;
+                // Calculamos el Hándicap de Juego (HC)
+                const hc = computeCourseHandicap(hi, PAPUDO_CR, PAPUDO_SR, PAPUDO_PAR);
+                const rankColor = getRankColor(index);
+                const isTop3 = index <= 2;
+                
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.card}
+                    onPress={() =>
+                      navigation.navigate('PlayerDetail', {
+                        playerId: item.player_id,
+                        displayName: item.display_name,
+                      })
+                    }
+                  >
+                    {/* MEDALLA / POSICIÓN */}
+                    <View style={[styles.rankBadge, { backgroundColor: rankColor }]}>
+                      <Text style={[styles.rankText, { color: isTop3 ? '#fff' : '#555' }]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+
+                    {/* NOMBRE JUGADOR (Ahora centrado verticalmente) */}
+                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                      <Text style={styles.playerName}>{item.display_name}</Text>
+                    </View>
+
+                    {/* SOLO HÁNDICAP DE JUEGO (HC) */}
+                    <View style={styles.scoreBox}>
+                      <Text style={styles.scoreLabel}>HC</Text>
+                      <Text style={styles.scoreValue}>{hc}</Text>
+                    </View>
+                    
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                  Aún no hay jugadores con hándicap oficial.
+                </Text>
+              }
+            />
+          )}
+        </View>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
-// --- 6. Estilos 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 12,
-    backgroundColor: colors.bg,
+  background: { flex: 1, width: '100%' },
+  gradient: { flex: 1 },
+  container: { flex: 1, padding: 16, paddingTop: 50 },
+
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 10,
+    textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4,
+    letterSpacing: 1,
   },
-  sortButtonContainer: {
-    marginBottom: 12,
+
+  sortButton: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
   },
+  sortButtonText: { color: '#ddd', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+
+  // TARJETA DE RANKING
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12, 
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    marginBottom: 8,
-  },
-  rankPill: {
-    width: 32,
-    height: 32,
+    gap: 15,
+    paddingVertical: 18, // Un poco más de aire vertical
+    paddingHorizontal: 15,
     borderRadius: 16,
-    backgroundColor: colors.light,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    marginBottom: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
+  },
+  
+  // MEDALLA
+  rankBadge: {
+    width: 42, height: 42,
+    borderRadius: 21,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1,
   },
   rankText: {
-    color: colors.dark,
-    fontWeight: '700',
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  name: {
-    fontSize: 16,
+
+  playerName: {
+    fontSize: 17, // Letra un poco más grande
     fontWeight: '700',
-    color: colors.text,
+    color: '#1e293b',
   },
-  handicapBox: { 
-    backgroundColor: colors.dark,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10, 
-    minWidth: 50, 
+
+  // SCORE BOX (HC)
+  scoreBox: {
     alignItems: 'center',
+    backgroundColor: colors.dark,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    minWidth: 55,
   },
-  hiText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  chText: {
-    color: colors.light,
-    fontWeight: '700',
-    fontSize: 12,
-    marginTop: 2,
-  },
+  scoreLabel: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '800' },
+  scoreValue: { fontSize: 20, color: '#fff', fontWeight: 'bold' }, // Número grande
+
   emptyText: {
     textAlign: 'center',
-    marginTop: 30,
-    color: colors.text,
+    marginTop: 50,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 16,
-    paddingHorizontal: 20,
   },
 });
